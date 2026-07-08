@@ -133,4 +133,10 @@
     @apply font-sans;
     scrollbar-gutter: stable;
     }
+  /* Radix scroll-lock conflicts with scrollbar-gutter: stable */
+  body[data-scroll-locked] {
+    --removed-body-scroll-bar-size: 0px !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+    }
 }

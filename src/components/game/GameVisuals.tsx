@@ -1,162 +1,177 @@
-import { Anchor, Battery, Bot, Waves } from "lucide-react";
+import { Drill, Plane, Ship, Trophy } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import {
+  GAME_LEVELS,
+  formatDistance,
+  getLevelForDistance,
+  getLevelProgress,
+  type GameType,
+} from "@/lib/game";
 import { cn } from "@/lib/utils";
 
-type GameVisualProps = {
-  progress: number;
-  lives: number;
-  maxLives: number;
-  resourceLabel: string;
+type DistanceGameVisualProps = {
+  gameType: GameType;
+  distanceMeters: number;
+  timeRemainingSeconds: number;
+  durationSeconds: number;
+  bestDistanceMeters?: number | null;
+  distanceLabel?: string;
   className?: string;
 };
 
-function ResourceMeter({
-  lives,
-  maxLives,
-  label,
-  icon,
-  className,
-}: {
-  lives: number;
-  maxLives: number;
-  label: string;
-  icon: React.ReactNode;
-  className?: string;
-}) {
-  const percent = Math.max(0, Math.min(100, (lives / maxLives) * 100));
+const VEHICLE_ICONS = {
+  submarine: Ship,
+  drill: Drill,
+  rocket: Plane,
+} as const;
 
-  return (
-    <div className={cn("space-y-2", className)}>
-      <div className="flex items-center justify-between text-sm">
-        <span className="flex items-center gap-2 font-medium">
-          {icon}
-          {label}
-        </span>
-        <span className="font-mono text-muted-foreground">
-          {lives}/{maxLives}
-        </span>
-      </div>
-      <Progress value={percent} className="h-2" />
-    </div>
-  );
+const LEVEL_COLORS = [
+  "from-sky-400/80 to-sky-600/80",
+  "from-blue-500/80 to-blue-700/80",
+  "from-indigo-600/80 to-indigo-800/80",
+  "from-violet-700/80 to-violet-900/80",
+  "from-fuchsia-800/80 to-fuchsia-950/80",
+];
+
+function getVehicleIcon(gameType: GameType) {
+  const vehicle = gameType === "deepDivers"
+    ? "submarine"
+    : gameType === "deepDrillers"
+      ? "drill"
+      : "rocket";
+  return VEHICLE_ICONS[vehicle];
 }
 
-export function SubmarineGame({
-  progress,
-  lives,
-  maxLives,
-  resourceLabel,
+export function DistanceGameVisual({
+  gameType,
+  distanceMeters,
+  timeRemainingSeconds,
+  durationSeconds,
+  bestDistanceMeters,
+  distanceLabel,
   className,
-}: GameVisualProps) {
-  const depth = Math.min(100, Math.max(0, progress));
+}: DistanceGameVisualProps) {
+  const config = GAME_LEVELS[gameType];
+  const { level, progressPercent } = getLevelProgress(gameType, distanceMeters);
+  const VehicleIcon = getVehicleIcon(gameType);
+  const goalPercent = Math.min(
+    100,
+    (distanceMeters / config.goalMeters) * 100,
+  );
+  const bestPercent =
+    bestDistanceMeters && bestDistanceMeters > 0
+      ? Math.min(100, (bestDistanceMeters / config.goalMeters) * 100)
+      : null;
 
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border bg-gradient-to-b from-sky-200/80 via-blue-500/40 to-blue-950 p-6 dark:from-sky-950/50 dark:via-blue-950 dark:to-slate-950",
+        "relative overflow-hidden rounded-2xl border bg-gradient-to-b from-slate-900 via-slate-950 to-black p-6 text-white",
         className,
       )}
     >
-      <div className="pointer-events-none absolute inset-0 opacity-30">
-        <Waves className="absolute right-4 top-4 size-16 text-white/40" />
-        <Waves className="absolute bottom-8 left-6 size-24 text-white/20" />
-      </div>
-
-      <div className="relative z-10 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="relative z-10 space-y-5">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-white/70">
-              Depth progress
+            <p className="text-xs font-medium uppercase tracking-wider text-white/60">
+              {distanceLabel ?? "Distance"}
             </p>
-            <p className="font-mono text-2xl font-bold text-white">
-              {Math.round(depth)}%
+            <p className="font-mono text-3xl font-bold tabular-nums">
+              {formatDistance(distanceMeters)}
+            </p>
+            <p className="mt-1 text-sm text-white/70">
+              Level {level.level}: {level.name}
             </p>
           </div>
-          <Anchor className="size-8 text-white/80" />
+          <div className="text-right">
+            <p className="text-xs font-medium uppercase tracking-wider text-white/60">
+              Time left
+            </p>
+            <p className="font-mono text-3xl font-bold tabular-nums text-sky-300">
+              {Math.ceil(timeRemainingSeconds)}s
+            </p>
+          </div>
         </div>
 
-        <div className="relative h-48 overflow-hidden rounded-xl bg-blue-950/50 ring-1 ring-white/10">
+        <div className="relative h-56 overflow-hidden rounded-xl border border-white/10 bg-black/30">
+          <div className="absolute inset-0 flex flex-col">
+            {[...config.levels].reverse().map((levelItem, index) => {
+              const reverseIndex = config.levels.length - 1 - index;
+              const isCurrent = levelItem.level === level.level;
+              return (
+                <div
+                  key={levelItem.level}
+                  className={cn(
+                    "relative flex flex-1 items-center border-b border-white/10 bg-gradient-to-r px-3 text-xs",
+                    LEVEL_COLORS[reverseIndex] ?? LEVEL_COLORS[0],
+                    isCurrent && "ring-1 ring-inset ring-white/40",
+                  )}
+                >
+                  <span className="truncate font-medium">
+                    L{levelItem.level} · {levelItem.name}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
           <div
-            className="absolute inset-x-0 top-0 h-full bg-gradient-to-b from-sky-300/20 to-blue-900/60 transition-transform duration-700 ease-out"
-            style={{ transform: `translateY(${100 - depth}%)` }}
-          />
-          <div
-            className="absolute left-1/2 flex -translate-x-1/2 items-center justify-center transition-all duration-700 ease-out"
-            style={{ top: `${Math.min(85, 10 + depth * 0.75)}%` }}
+            className="pointer-events-none absolute inset-x-0 top-0 border-b-2 border-yellow-300 transition-all duration-700 ease-out"
+            style={{ top: `${Math.max(4, 100 - goalPercent)}%` }}
           >
-            <div className="flex size-14 items-center justify-center rounded-full bg-yellow-400 shadow-lg ring-4 ring-yellow-200/50">
-              <Anchor className="size-7 text-blue-900" />
+            <div className="absolute -left-1 -top-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-yellow-300 text-slate-900 shadow-lg">
+              <VehicleIcon className="size-4" />
             </div>
           </div>
-          <div className="absolute bottom-3 left-3 rounded-md bg-black/30 px-2 py-1 text-xs text-white/80">
-            Goal: ocean floor
+
+          {bestPercent !== null ? (
+            <div
+              className="pointer-events-none absolute inset-x-8 border-t border-dashed border-amber-300/80"
+              style={{ top: `${Math.max(4, 100 - bestPercent)}%` }}
+            >
+              <span className="absolute -right-1 -top-4 flex items-center gap-1 rounded bg-amber-300/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">
+                <Trophy className="size-3" />
+                Best
+              </span>
+            </div>
+          ) : null}
+
+          <div className="absolute bottom-3 left-3 rounded-md bg-black/50 px-2 py-1 text-xs text-white/80">
+            Goal: {formatDistance(config.goalMeters)}
           </div>
         </div>
 
-        <ResourceMeter
-          lives={lives}
-          maxLives={maxLives}
-          label={resourceLabel}
-          icon={<Waves className="size-4" />}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-white/70">
+            <span>Level progress</span>
+            <span>{Math.round(progressPercent)}%</span>
+          </div>
+          <Progress value={progressPercent} className="h-2 bg-white/10" />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-white/70">
+            <span>Overall goal</span>
+            <span>{Math.round(goalPercent)}%</span>
+          </div>
+          <Progress value={goalPercent} className="h-1.5 bg-white/10" />
+        </div>
+
+        {bestDistanceMeters ? (
+          <p className="text-xs text-amber-200/90">
+            High score to beat: {formatDistance(bestDistanceMeters)}
+          </p>
+        ) : null}
+
+        <Progress
+          value={(timeRemainingSeconds / durationSeconds) * 100}
+          className="h-1 bg-white/10"
         />
       </div>
     </div>
   );
 }
 
-export function RobotGame({
-  progress,
-  lives,
-  maxLives,
-  resourceLabel,
-  className,
-}: GameVisualProps) {
-  const distance = Math.min(100, Math.max(0, progress));
-
-  return (
-    <div
-      className={cn(
-        "relative overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-100 via-slate-200 to-slate-300 p-6 dark:from-slate-900 dark:via-slate-800 dark:to-slate-950",
-        className,
-      )}
-    >
-      <div className="relative z-10 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Track progress
-            </p>
-            <p className="font-mono text-2xl font-bold">{Math.round(distance)}%</p>
-          </div>
-          <Bot className="size-8 text-primary" />
-        </div>
-
-        <div className="relative h-48 overflow-hidden rounded-xl bg-muted/50 ring-1 ring-border">
-          <div className="absolute inset-x-4 top-1/2 h-2 -translate-y-1/2 rounded-full bg-border" />
-          <div
-            className="absolute left-4 top-1/2 h-2 -translate-y-1/2 rounded-full bg-primary transition-all duration-700 ease-out"
-            style={{ width: `calc(${distance}% - 2rem)` }}
-          />
-          <div
-            className="absolute top-1/2 flex -translate-y-1/2 transition-all duration-700 ease-out"
-            style={{ left: `calc(${Math.max(4, distance)}% - 1.5rem)` }}
-          >
-            <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg">
-              <Bot className="size-6" />
-            </div>
-          </div>
-          <div className="absolute bottom-3 right-3 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground">
-            Finish line
-          </div>
-        </div>
-
-        <ResourceMeter
-          lives={lives}
-          maxLives={maxLives}
-          label={resourceLabel}
-          icon={<Battery className="size-4" />}
-        />
-      </div>
-    </div>
-  );
+export function getLevelName(gameType: GameType, distanceMeters: number) {
+  return getLevelForDistance(gameType, distanceMeters).name;
 }

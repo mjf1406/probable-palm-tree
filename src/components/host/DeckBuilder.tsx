@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NumberInput } from "@/components/ui/number-input";
 import {
   Select,
   SelectContent,
@@ -30,12 +31,21 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { db } from "@/lib/db";
 import {
-  SHUFFLE_MODES,
+  MAX_QUESTION_TIME,
+  MIN_QUESTION_TIME,
+  QUESTION_TIME_CTRL_SHIFT_STEP,
+  QUESTION_TIME_CTRL_STEP,
+  QUESTION_TIME_SHIFT_STEP,
+  QUESTION_TIME_STEP,
+  parseQuestionTimeSeconds,
   parseQuestionType,
+  parseSettingScope,
   parseShuffleMode,
   type QuestionType,
+  type SettingScope,
   type ShuffleMode,
 } from "@/lib/game";
+import { ShuffleSettingField } from "@/components/host/ShuffleSettingField";
 import { cn } from "@/lib/utils";
 
 const MIN_MC_OPTIONS = 2;
@@ -100,6 +110,9 @@ function DeckSettingsForm({
     id: string;
     answerShuffleMode?: string | null;
     questionShuffleMode?: string | null;
+    answerShuffleScope?: string | null;
+    questionShuffleScope?: string | null;
+    questionTimeSeconds?: number | null;
   };
 }) {
   const [answerShuffleMode, setAnswerShuffleMode] = useState<ShuffleMode>(
@@ -107,6 +120,14 @@ function DeckSettingsForm({
   );
   const [questionShuffleMode, setQuestionShuffleMode] = useState<ShuffleMode>(
     parseShuffleMode(deck.questionShuffleMode),
+  );
+  const [answerShuffleScope, setAnswerShuffleScope] = useState<SettingScope>(
+    parseSettingScope(deck.answerShuffleScope),
+  );
+  const [questionShuffleScope, setQuestionShuffleScope] =
+    useState<SettingScope>(parseSettingScope(deck.questionShuffleScope));
+  const [questionTimeSeconds, setQuestionTimeSeconds] = useState(
+    String(parseQuestionTimeSeconds(deck.questionTimeSeconds)),
   );
   const [isSaving, setIsSaving] = useState(false);
 
@@ -117,6 +138,10 @@ function DeckSettingsForm({
         db.tx.decks[deck.id].update({
           answerShuffleMode,
           questionShuffleMode,
+          answerShuffleScope,
+          questionShuffleScope,
+          questionTimeSeconds:
+            parseQuestionTimeSeconds(questionTimeSeconds),
         }),
       );
     } finally {
@@ -129,63 +154,40 @@ function DeckSettingsForm({
       <CardHeader>
         <CardTitle className="text-lg">Settings</CardTitle>
         <CardDescription>
-          Control how questions and answer options are ordered when this deck
-          is launched or rematched.
+          Default settings used when this deck is launched or rematched.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label>Answer option order</Label>
-          <Select
-            value={answerShuffleMode}
-            onValueChange={(value) =>
-              setAnswerShuffleMode(parseShuffleMode(value))
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SHUFFLE_MODES.map((mode) => (
-                <SelectItem key={mode.id} value={mode.id}>
-                  {mode.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            {
-              SHUFFLE_MODES.find((mode) => mode.id === answerShuffleMode)
-                ?.description
-            }
-          </p>
-        </div>
+        <ShuffleSettingField
+          label="Answer option order"
+          mode={answerShuffleMode}
+          scope={answerShuffleScope}
+          onModeChange={setAnswerShuffleMode}
+          onScopeChange={setAnswerShuffleScope}
+        />
+
+        <ShuffleSettingField
+          label="Question order"
+          mode={questionShuffleMode}
+          scope={questionShuffleScope}
+          onModeChange={setQuestionShuffleMode}
+          onScopeChange={setQuestionShuffleScope}
+        />
 
         <div className="space-y-2">
-          <Label>Question order</Label>
-          <Select
-            value={questionShuffleMode}
-            onValueChange={(value) =>
-              setQuestionShuffleMode(parseShuffleMode(value))
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SHUFFLE_MODES.map((mode) => (
-                <SelectItem key={mode.id} value={mode.id}>
-                  {mode.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            {
-              SHUFFLE_MODES.find((mode) => mode.id === questionShuffleMode)
-                ?.description
-            }
-          </p>
+          <Label htmlFor="deck-question-time">Seconds per question</Label>
+          <NumberInput
+            id="deck-question-time"
+            value={questionTimeSeconds}
+            onChange={setQuestionTimeSeconds}
+            min={MIN_QUESTION_TIME}
+            max={MAX_QUESTION_TIME}
+            step={QUESTION_TIME_STEP}
+            ctrlStep={QUESTION_TIME_CTRL_STEP}
+            shiftStep={QUESTION_TIME_SHIFT_STEP}
+            ctrlShiftStep={QUESTION_TIME_CTRL_SHIFT_STEP}
+            inputClassName="max-w-40"
+          />
         </div>
 
         <Button onClick={() => void handleSave()} disabled={isSaving}>

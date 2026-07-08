@@ -21,6 +21,11 @@ const _schema = i.schema({
       // "none" | "once" | "eachRepetition" — default handled in app as "eachRepetition"
       answerShuffleMode: i.string().optional(),
       questionShuffleMode: i.string().optional(),
+      // "everyone" | "perPlayer" — default handled in app as "everyone"
+      answerShuffleScope: i.string().optional(),
+      questionShuffleScope: i.string().optional(),
+      // default handled in app as DEFAULT_QUESTION_TIME (20)
+      questionTimeSeconds: i.number().optional(),
     }),
     questions: i.entity({
       text: i.string(),
@@ -34,12 +39,14 @@ const _schema = i.schema({
       code: i.string().unique().indexed(),
       gameType: i.string().indexed(),
       status: i.string().indexed(),
-      currentQuestionIndex: i.number(),
-      questionStartedAt: i.number().optional(),
-      progress: i.number(),
-      lives: i.number(),
+      durationSeconds: i.number().optional(),
+      startedAt: i.number().optional(),
       questionTimeSeconds: i.number(),
       questionsSnapshot: i.json(),
+      answerShuffleMode: i.string().optional(),
+      questionShuffleMode: i.string().optional(),
+      answerShuffleScope: i.string().optional(),
+      questionShuffleScope: i.string().optional(),
       createdAt: i.number().indexed(),
       deckTitle: i.string().optional(),
       deckId: i.string().optional(),
@@ -50,12 +57,23 @@ const _schema = i.schema({
       joinedAt: i.number().indexed(),
       iconId: i.string().optional(),
       avatarColor: i.string().optional(),
+      questionsSnapshot: i.json().optional(),
+      currentQuestionIndex: i.number().optional(),
+      streak: i.number().optional(),
+      repetition: i.number().optional(),
+      questionStartedAt: i.number().optional(),
     }),
     answers: i.entity({
       questionIndex: i.number().indexed(),
       choiceIndex: i.number(),
       isCorrect: i.boolean(),
       answeredAt: i.number(),
+      distanceGained: i.number().optional(),
+    }),
+    highScores: i.entity({
+      gameType: i.string().indexed(),
+      distanceMeters: i.number(),
+      achievedAt: i.number().indexed(),
     }),
   },
   links: {
@@ -99,6 +117,10 @@ const _schema = i.schema({
     answerPlayer: {
       forward: { on: "answers", has: "one", label: "player" },
       reverse: { on: "players", has: "many", label: "answers" },
+    },
+    highScoreDeck: {
+      forward: { on: "highScores", has: "one", label: "deck" },
+      reverse: { on: "decks", has: "many", label: "highScores" },
     },
   },
   rooms: {

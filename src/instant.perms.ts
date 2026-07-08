@@ -38,7 +38,8 @@ const rules = {
     allow: {
       view: "true",
       create: "auth.id in data.ref('user.id')",
-      update: "auth.id in data.ref('user.id')",
+      update:
+        "auth.id in data.ref('user.id') || auth.id in data.ref('game.host.id')",
       delete:
         "auth.id in data.ref('user.id') || auth.id in data.ref('game.host.id')",
     },
@@ -49,6 +50,14 @@ const rules = {
       create: "auth.id in data.ref('player.user.id')",
       update: "false",
       delete: "auth.id in data.ref('game.host.id')",
+    },
+  },
+  highScores: {
+    allow: {
+      view: "true",
+      create: "auth.id != null",
+      update: "auth.id != null",
+      delete: "auth.id != null",
     },
   },
 } satisfies InstantRules;

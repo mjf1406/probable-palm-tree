@@ -7,7 +7,10 @@ import {
   GameHostPresence,
   GamePlayerPresence,
 } from "@/components/game/GamePresence";
-import { RobotGame, SubmarineGame } from "@/components/game/GameVisuals";
+import {
+  DistanceGameVisual,
+  getLevelName,
+} from "@/components/game/GameVisuals";
 import { GameSetupDialog } from "@/components/host/GameSetupDialog";
 import { CancelGameButton } from "@/components/game/CancelGameButton";
 import { Button } from "@/components/ui/button";
@@ -20,7 +23,11 @@ import {
 } from "@/components/ui/card";
 import { clearStoredPlayerId } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { STARTING_LIVES, formatCode } from "@/lib/game";
+import {
+  computePlayerDistance,
+  formatCode,
+  formatDistance,
+} from "@/lib/game";
 import { joinSearchDefaults } from "@/lib/routes";
 import { useGameSession } from "@/lib/useGameSession";
 import { startGame } from "@/lib/useHostGameEngine";
@@ -46,6 +53,8 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
     isHost,
     currentPlayer,
     gameMeta,
+    totalDistance,
+    playerProgress,
   } = useGameSession(code, playerId);
   const { user } = db.useAuth();
   const { data: decksData } = db.useQuery(
@@ -54,6 +63,20 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
           decks: {
             questions: {},
             owner: {},
+          },
+        }
+      : null,
+  );
+  const { data: highScoreData } = db.useQuery(
+    game?.deckId && game.status === "ended"
+      ? {
+          highScores: {
+            $: {
+              where: {
+                "deck.id": game.deckId,
+                gameType: game.gameType,
+              },
+            },
           },
         }
       : null,
@@ -144,7 +167,6 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
   }
 
   if (!game) {
-    // Non-host redirect is handled by the effect above while loading settles.
     if (!isHost && playerId) {
       return (
         <main className="mx-auto max-w-4xl px-6 py-10">
@@ -175,9 +197,6 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
     );
   }
 
-  const GameVisual =
-    game.gameType === "robot" ? RobotGame : SubmarineGame;
-
   const launchableDecks = (decksData?.decks ?? [])
     .map((deck) => ({
       id: deck.id as string,
@@ -187,6 +206,12 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
         | string
         | null
         | undefined,
+      answerShuffleScope: deck.answerShuffleScope as string | null | undefined,
+      questionShuffleScope: deck.questionShuffleScope as
+        | string
+        | null
+        | undefined,
+      questionTimeSeconds: deck.questionTimeSeconds as number | null | undefined,
       questions: (deck.questions ?? []) as {
         text: string;
         options: unknown;
@@ -197,29 +222,61 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
     }))
     .filter((deck) => deck.questions.length > 0);
 
-  if (game.status === "won" || game.status === "lost") {
+  const bestDistance = highScoreData?.highScores?.[0]?.distanceMeters ?? null;
+  const isNewHighScore =
+    game.status === "ended" &&
+    bestDistance !== null &&
+    totalDistance >= bestDistance &&
+    totalDistance > 0;
+
+  if (game.status === "ended") {
     return (
       <main className="mx-auto max-w-4xl space-y-6 px-6 py-10">
         <Card className="text-center">
           <CardHeader>
-            <CardTitle className="text-3xl">
-              {game.status === "won" ? "Victory!" : "Game Over"}
-            </CardTitle>
+            <CardTitle className="text-3xl">Time&apos;s up!</CardTitle>
             <CardDescription>
-              {game.status === "won"
-                ? "Your squad completed the mission together!"
-                : "You ran out of resources. Try again!"}
+              {isNewHighScore
+                ? "New high score for this deck!"
+                : "Here is how far the squad traveled."}
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {isHost ? (
-              <GameVisual
-                progress={game.progress}
-                lives={game.lives}
-                maxLives={STARTING_LIVES}
-                resourceLabel={gameMeta?.resource ?? "Resource"}
-              />
-            ) : null}
+          <CardContent className="space-y-6">
+            <DistanceGameVisual
+              gameType={game.gameType}
+              distanceMeters={totalDistance}
+              timeRemainingSeconds={0}
+              durationSeconds={game.durationSeconds}
+              bestDistanceMeters={bestDistance}
+              distanceLabel={gameMeta?.distanceLabel ?? "Distance"}
+            />
+
+            <div className="rounded-xl border p-4 text-left">
+              <p className="text-sm text-muted-foreground">Deepest level reached</p>
+              <p className="text-lg font-semibold">
+                {getLevelName(game.gameType, totalDistance)}
+              </p>
+            </div>
+
+            <div className="rounded-xl border p-4 text-left">
+              <p className="mb-3 text-sm font-medium">Player contributions</p>
+              <ul className="space-y-2">
+                {playerProgress.map(({ player }) => (
+                  <li
+                    key={player.id}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span>{player.nickname}</span>
+                    <span className="font-mono">
+                      {formatDistance(
+                        computePlayerDistance(answers, player.id),
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             {isHost ? (
               <div className="flex flex-col items-center gap-3">
                 <Button onClick={() => setRematchOpen(true)}>Play again</Button>
@@ -244,13 +301,15 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
                   initialDeckId={game.deckId}
                   initialGameType={game.gameType}
                   initialQuestionTime={game.questionTimeSeconds}
+                  initialDurationSeconds={game.durationSeconds}
                   rematchGame={game}
+                  players={players}
                   answerIds={answers.map((answer) => answer.id)}
                 />
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Waiting for the host to start the next round...
+                Waiting for the host to start the next run...
               </p>
             )}
           </CardContent>
@@ -280,26 +339,26 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
           />
         ) : null}
         <LobbyView
-        code={game.code}
-        gameTypeName={gameMeta?.name ?? "Game"}
-        players={players}
-        isHost={isHost}
-        currentPlayer={currentPlayer}
-        currentPlayerNickname={currentPlayer?.nickname}
-        onStart={() => void handleStart()}
-        onCancel={
-          isHost
-            ? () => void cancel(game.id, players.map((player) => player.id))
-            : undefined
-        }
-        onLeave={
-          !isHost && currentPlayer
-            ? () => void leave(currentPlayer.id)
-            : undefined
-        }
-        isLeaving={isLeaving}
-        isCancelling={isCancelling}
-      />
+          code={game.code}
+          gameTypeName={gameMeta?.name ?? "Game"}
+          players={players}
+          isHost={isHost}
+          currentPlayer={currentPlayer}
+          currentPlayerNickname={currentPlayer?.nickname}
+          onStart={() => void handleStart()}
+          onCancel={
+            isHost
+              ? () => void cancel(game.id, players.map((player) => player.id))
+              : undefined
+          }
+          onLeave={
+            !isHost && currentPlayer
+              ? () => void leave(currentPlayer.id)
+              : undefined
+          }
+          isLeaving={isLeaving}
+          isCancelling={isCancelling}
+        />
       </>
     );
   }

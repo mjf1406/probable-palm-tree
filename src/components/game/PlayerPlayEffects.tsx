@@ -49,6 +49,10 @@ export function PlayerPlayEffects({
     }
 
     if (!game || !playerId) return;
+    if (game.status === "ended") {
+      void navigate({ to: "/g/$code", params: { code: upperCode } });
+      return;
+    }
     if (currentPlayer) return;
 
     clearStoredPlayerId(upperCode);

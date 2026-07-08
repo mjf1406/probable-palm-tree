@@ -1,10 +1,11 @@
 import { HostPlayScreen } from "@/components/game/HostPlayScreen";
-import {
-  PlayerPlayScreen,
-  submitAnswer,
-} from "@/components/game/PlayerPlayScreen";
+import { PlayerPlayScreen } from "@/components/game/PlayerPlayScreen";
 import { useGameSession } from "@/lib/useGameSession";
 import { useHostGameEngine } from "@/lib/useHostGameEngine";
+import {
+  submitPlayerAnswer,
+  usePlayerGameEngine,
+} from "@/lib/usePlayerGameEngine";
 
 type GamePlayScreenProps = {
   code: string;
@@ -14,30 +15,34 @@ type GamePlayScreenProps = {
 export function GamePlayScreen({ code, playerId }: GamePlayScreenProps) {
   const {
     game,
-    players,
     answers,
     isHost,
     currentPlayer,
     gameMeta,
     currentQuestion,
-    currentAnswers,
     myAnswer,
+    totalDistance,
+    myDistance,
+    myStreak,
+    myStreakMultiplier,
+    gameTimeRemaining,
+    playerProgress,
   } = useGameSession(code, playerId);
 
-  const { revealing } = useHostGameEngine(
-    isHost ? game : null,
-    players,
+  useHostGameEngine(isHost ? game : null, answers);
+  usePlayerGameEngine(
+    !isHost ? game : null,
+    !isHost ? (currentPlayer ?? null) : null,
     answers,
   );
 
   const handleAnswer = (choiceIndex: number) => {
     if (!game || !currentPlayer || !currentQuestion || myAnswer) return;
-    if (game.status !== "playing" || revealing) return;
+    if (game.status !== "playing") return;
 
-    void submitAnswer({
-      gameId: game.id,
-      playerId: currentPlayer.id,
-      questionIndex: game.currentQuestionIndex,
+    void submitPlayerAnswer({
+      game,
+      player: currentPlayer,
       choiceIndex,
       correctIndex: currentQuestion.correctIndex,
     });
@@ -49,9 +54,9 @@ export function GamePlayScreen({ code, playerId }: GamePlayScreenProps) {
     return (
       <HostPlayScreen
         game={game}
-        players={players}
-        currentAnswers={currentAnswers}
-        revealing={revealing}
+        playerProgress={playerProgress}
+        totalDistance={totalDistance}
+        gameTimeRemaining={gameTimeRemaining}
         gameMeta={gameMeta}
       />
     );
@@ -62,8 +67,11 @@ export function GamePlayScreen({ code, playerId }: GamePlayScreenProps) {
       game={game}
       currentQuestion={currentQuestion}
       myAnswer={myAnswer ?? null}
-      revealing={revealing}
-      gameMeta={gameMeta}
+      myStreak={myStreak}
+      myStreakMultiplier={myStreakMultiplier}
+      myDistance={myDistance}
+      totalDistance={totalDistance}
+      questionStartedAt={currentPlayer?.questionStartedAt}
       onAnswer={handleAnswer}
     />
   );

@@ -2,6 +2,7 @@ import type {
   GameType,
   GameStatus,
   QuestionType,
+  SettingScope,
   ShuffleMode,
 } from "@/lib/game";
 
@@ -24,6 +25,8 @@ export type DeckQuestion = {
 export type DeckShuffleSettings = {
   answerShuffleMode: ShuffleMode;
   questionShuffleMode: ShuffleMode;
+  answerShuffleScope: SettingScope;
+  questionShuffleScope: SettingScope;
 };
 
 export type GameRecord = {
@@ -31,12 +34,14 @@ export type GameRecord = {
   code: string;
   gameType: GameType;
   status: GameStatus;
-  currentQuestionIndex: number;
-  questionStartedAt?: number | null;
-  progress: number;
-  lives: number;
+  durationSeconds: number;
+  startedAt?: number | null;
   questionTimeSeconds: number;
   questionsSnapshot: QuestionSnapshot[];
+  answerShuffleMode?: ShuffleMode;
+  questionShuffleMode?: ShuffleMode;
+  answerShuffleScope?: SettingScope;
+  questionShuffleScope?: SettingScope;
   createdAt: number;
   deckTitle?: string | null;
   deckId?: string | null;
@@ -50,6 +55,11 @@ export type PlayerRecord = {
   joinedAt: number;
   iconId?: string | null;
   avatarColor?: string | null;
+  questionsSnapshot?: QuestionSnapshot[] | null;
+  currentQuestionIndex: number;
+  streak: number;
+  repetition: number;
+  questionStartedAt?: number | null;
   user?: { id: string } | null;
 };
 
@@ -59,5 +69,14 @@ export type AnswerRecord = {
   choiceIndex: number;
   isCorrect: boolean;
   answeredAt: number;
+  distanceGained: number;
   player?: { id: string; nickname: string } | null;
+};
+
+export type HighScoreRecord = {
+  id: string;
+  gameType: GameType;
+  distanceMeters: number;
+  achievedAt: number;
+  deck?: { id: string } | null;
 };

@@ -26,7 +26,7 @@ export async function lookupJoinableGame(code: string): Promise<{
       return { game: null, error: "No game found with that code." };
     }
 
-    if (game.status === "won" || game.status === "lost") {
+    if (game.status === "ended") {
       return { game: null, error: "This game has already ended." };
     }
 

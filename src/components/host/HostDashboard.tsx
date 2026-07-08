@@ -1,23 +1,52 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { id } from "@instantdb/react";
-import { ExternalLink, Plus, Rocket, Ship } from "lucide-react";
+import {
+  Drill,
+  ExternalLink,
+  MoreHorizontal,
+  Pencil,
+  Plane,
+  Plus,
+  Ship,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { DifficultyBadge } from "@/components/game/DifficultyBadge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
-import { DEFAULT_SHUFFLE_MODE, GAME_TYPES } from "@/lib/game";
+import { DEFAULT_QUESTION_TIME, DEFAULT_SHUFFLE_MODE, DEFAULT_SETTING_SCOPE, GAME_TYPES } from "@/lib/game";
 import type { GameRecord } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const RECENT_GAME_MS = 24 * 60 * 60 * 1000;
 
@@ -52,50 +81,155 @@ function statusLabel(status: GameRecord["status"]) {
       return "Lobby";
     case "playing":
       return "Playing";
-    case "won":
-      return "Won";
-    case "lost":
-      return "Lost";
+    case "ended":
+      return "Ended";
     default:
       return status;
   }
 }
 
+const GAME_ICONS = {
+  deepDivers: Ship,
+  deepDrillers: Drill,
+  highFlyers: Plane,
+} as const;
+
 function DeckCard({ deck }: { deck: DeckWithQuestions }) {
+  const navigate = useNavigate();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const canLaunch = deck.questions.length > 0;
 
+  const handleLaunch = () => {
+    void navigate({ to: "/l/$deckId", params: { deckId: deck.id } });
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await db.transact([
+        ...deck.questions.map((question) => db.tx.questions[question.id].delete()),
+        db.tx.decks[deck.id].delete(),
+      ]);
+      toast.success("Deck deleted");
+      setDeleteOpen(false);
+    } catch {
+      toast.error("Could not delete deck. Try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between gap-2">
+    <>
+      <Card
+        role="button"
+        tabIndex={0}
+        className={cn(
+          "cursor-pointer transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          !canLaunch && "opacity-80",
+        )}
+        onClick={handleLaunch}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleLaunch();
+          }
+        }}
+      >
+        <CardHeader>
           <CardTitle className="text-lg">{deck.title}</CardTitle>
-          {deck.isBuiltIn ? <Badge variant="secondary">Built-in</Badge> : null}
-        </div>
-        {deck.description ? (
-          <CardDescription>{deck.description}</CardDescription>
-        ) : null}
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">
-          {deck.questions.length} question
-          {deck.questions.length === 1 ? "" : "s"}
-        </p>
-      </CardContent>
-      <CardFooter className="gap-2">
-        {!deck.isBuiltIn ? (
-          <Button asChild variant="outline" size="sm">
-            <Link to="/d/$deckId" params={{ deckId: deck.id }}>
-              Edit
-            </Link>
-          </Button>
-        ) : null}
-        <Button asChild size="sm" disabled={!canLaunch}>
-          <Link to="/l/$deckId" params={{ deckId: deck.id }}>
-            Launch
-          </Link>
-        </Button>
-      </CardFooter>
-    </Card>
+          {deck.isBuiltIn ? (
+            <Badge variant="secondary" className="col-start-1 row-start-2 w-fit">
+              Built-in
+            </Badge>
+          ) : (
+            <CardAction>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-muted-foreground"
+                    aria-label={`Actions for ${deck.title}`}
+                    onClick={(event) => event.stopPropagation()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <MoreHorizontal className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      void navigate({
+                        to: "/d/$deckId",
+                        params: { deckId: deck.id },
+                      })
+                    }
+                  >
+                    <Pencil />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </CardAction>
+          )}
+          {deck.description ? (
+            <CardDescription className="col-span-2">
+              {deck.description}
+            </CardDescription>
+          ) : null}
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            {deck.questions.length} question
+            {deck.questions.length === 1 ? "" : "s"}
+            {!canLaunch ? " · Add questions to launch" : null}
+          </p>
+        </CardContent>
+      </Card>
+
+      {!deck.isBuiltIn ? (
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent
+            onClick={(event) => event.stopPropagation()}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this deck?</AlertDialogTitle>
+              <AlertDialogDescription>
+                &ldquo;{deck.title}&rdquo; and all {deck.questions.length}{" "}
+                question{deck.questions.length === 1 ? "" : "s"} will be
+                permanently removed. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={isDeleting}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void handleDelete();
+                }}
+              >
+                {isDeleting ? "Deleting..." : "Delete deck"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
+    </>
   );
 }
 
@@ -199,6 +333,9 @@ export function HostDashboard() {
             createdAt: Date.now(),
             answerShuffleMode: DEFAULT_SHUFFLE_MODE,
             questionShuffleMode: DEFAULT_SHUFFLE_MODE,
+            answerShuffleScope: DEFAULT_SETTING_SCOPE,
+            questionShuffleScope: DEFAULT_SETTING_SCOPE,
+            questionTimeSeconds: DEFAULT_QUESTION_TIME,
           })
           .link({ owner: user.id }),
       );
@@ -214,8 +351,8 @@ export function HostDashboard() {
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">My decks</h1>
         <p className="text-muted-foreground">
-          Build quiz decks or pick a built-in set, then launch a cooperative
-          game.
+          Build quiz decks or pick a built-in set, then launch a distance
+          challenge game.
         </p>
       </div>
 
@@ -235,22 +372,22 @@ export function HostDashboard() {
         </section>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {GAME_TYPES.map((type) => (
+      <div className="grid gap-4 sm:grid-cols-3">
+        {GAME_TYPES.map((type) => {
+          const Icon = GAME_ICONS[type.id];
+          return (
           <Card key={type.id}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
-                {type.id === "submarine" ? (
-                  <Ship className="size-5 text-primary" />
-                ) : (
-                  <Rocket className="size-5 text-primary" />
-                )}
+                <Icon className="size-5 text-primary" />
                 {type.name}
+                <DifficultyBadge difficulty={type.difficulty} />
               </CardTitle>
               <CardDescription>{type.description}</CardDescription>
             </CardHeader>
           </Card>
-        ))}
+          );
+        })}
       </div>
 
       <Card>

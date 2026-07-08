@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Rocket, Ship } from "lucide-react";
+import { Drill, Plane, Ship } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,8 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NumberInput } from "@/components/ui/number-input";
 import {
   Select,
   SelectContent,
@@ -20,15 +20,33 @@ import {
 } from "@/components/ui/select";
 import { db } from "@/lib/db";
 import {
+  DEFAULT_DURATION_MINUTES,
   DEFAULT_QUESTION_TIME,
+  DURATION_PRESETS,
+  DURATION_STEP_MINUTES,
   GAME_TYPES,
-  buildQuestionsSnapshot,
-  parseShuffleMode,
+  MAX_DURATION_MINUTES,
+  MAX_QUESTION_TIME,
+  MIN_DURATION_MINUTES,
+  MIN_QUESTION_TIME,
+  QUESTION_TIME_CTRL_SHIFT_STEP,
+  QUESTION_TIME_CTRL_STEP,
+  QUESTION_TIME_SHIFT_STEP,
+  QUESTION_TIME_STEP,
+  buildGameQuestionsSnapshot,
+  buildPlayerQuestionsSnapshot,
+  durationMinutesToSeconds,
+  getDeckShuffleConfig,
+  needsPerPlayerSnapshot,
+  parseDurationMinutes,
+  parseQuestionTimeSeconds,
   reshuffleForRepetition,
+  secondsToDurationMinutes,
+  type DeckShuffleConfig,
   type GameType,
   type ShuffleMode,
 } from "@/lib/game";
-import type { GameRecord, QuestionSnapshot } from "@/lib/types";
+import type { GameRecord, PlayerRecord, QuestionSnapshot } from "@/lib/types";
 import { resetGameForRematch } from "@/lib/useHostGameEngine";
 
 type DeckOption = {
@@ -43,6 +61,9 @@ type DeckOption = {
   }[];
   answerShuffleMode?: ShuffleMode | string | null;
   questionShuffleMode?: ShuffleMode | string | null;
+  answerShuffleScope?: string | null;
+  questionShuffleScope?: string | null;
+  questionTimeSeconds?: number | null;
 };
 
 type GameSetupDialogProps = {
@@ -53,24 +74,52 @@ type GameSetupDialogProps = {
   initialDeckId?: string | null;
   initialGameType?: GameType;
   initialQuestionTime?: number;
+  initialDurationSeconds?: number;
   rematchGame?: GameRecord | null;
+  players?: PlayerRecord[];
   answerIds?: string[];
 };
 
-function buildLaunchSnapshot(
-  questions: {
-    text: string;
-    options: unknown;
-    correctIndex: number;
-    order: number;
-    questionType?: unknown;
-  }[],
-  answerShuffleMode: ShuffleMode,
-  questionShuffleMode: ShuffleMode,
-): QuestionSnapshot[] {
-  return buildQuestionsSnapshot(questions, {
-    answerShuffleMode,
-    questionShuffleMode,
+const GAME_ICONS = {
+  deepDivers: Ship,
+  deepDrillers: Drill,
+  highFlyers: Plane,
+} as const;
+
+function buildPlayerSnapshotUpdates(
+  players: PlayerRecord[],
+  gameSnapshot: QuestionSnapshot[],
+  settings: DeckShuffleConfig,
+  sameDeck: boolean,
+): { playerId: string; questionsSnapshot: QuestionSnapshot[] | null }[] {
+  return players.map((player) => {
+    if (sameDeck && player.questionsSnapshot) {
+      return {
+        playerId: player.id,
+        questionsSnapshot: reshuffleForRepetition(
+          player.questionsSnapshot,
+          settings,
+          "perPlayer",
+          player.id,
+        ),
+      };
+    }
+
+    if (needsPerPlayerSnapshot(settings)) {
+      return {
+        playerId: player.id,
+        questionsSnapshot: buildPlayerQuestionsSnapshot(
+          gameSnapshot,
+          settings,
+          player.id,
+        ),
+      };
+    }
+
+    return {
+      playerId: player.id,
+      questionsSnapshot: [...gameSnapshot],
+    };
   });
 }
 
@@ -79,28 +128,49 @@ export function GameSetupDialog({
   onOpenChange,
   decks,
   initialDeckId,
-  initialGameType = "submarine",
+  initialGameType = "deepDivers",
   initialQuestionTime = DEFAULT_QUESTION_TIME,
+  initialDurationSeconds = DEFAULT_DURATION_MINUTES * 60,
   rematchGame,
+  players = [],
   answerIds = [],
 }: GameSetupDialogProps) {
   const { user } = db.useAuth();
   const [deckId, setDeckId] = useState(initialDeckId ?? decks[0]?.id ?? "");
   const [gameType, setGameType] = useState<GameType>(initialGameType);
   const [questionTime, setQuestionTime] = useState(String(initialQuestionTime));
+  const [durationMinutes, setDurationMinutes] = useState(
+    String(secondsToDurationMinutes(initialDurationSeconds)),
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setDeckId(initialDeckId ?? decks[0]?.id ?? "");
     setGameType(initialGameType);
-    setQuestionTime(String(initialQuestionTime));
-  }, [open, initialDeckId, decks, initialGameType, initialQuestionTime]);
+    setDurationMinutes(String(secondsToDurationMinutes(initialDurationSeconds)));
+    const initialDeck = decks.find(
+      (deck) => deck.id === (initialDeckId ?? decks[0]?.id ?? ""),
+    );
+    setQuestionTime(
+      String(
+        initialDeck
+          ? parseQuestionTimeSeconds(initialDeck.questionTimeSeconds)
+          : initialQuestionTime,
+      ),
+    );
+  }, [
+    open,
+    initialDeckId,
+    decks,
+    initialGameType,
+    initialQuestionTime,
+    initialDurationSeconds,
+  ]);
 
   const selectedDeck = decks.find((deck) => deck.id === deckId);
-  const answerShuffleMode = parseShuffleMode(selectedDeck?.answerShuffleMode);
-  const questionShuffleMode = parseShuffleMode(
-    selectedDeck?.questionShuffleMode,
+  const shuffleSettings = getDeckShuffleConfig(
+    rematchGame?.deckId === selectedDeck?.id ? rematchGame : selectedDeck,
   );
   const selectedGame = GAME_TYPES.find((type) => type.id === gameType);
   const hasQuestions = (selectedDeck?.questions.length ?? 0) > 0;
@@ -111,31 +181,32 @@ export function GameSetupDialog({
     setIsSubmitting(true);
     try {
       const sameDeck = rematchGame.deckId === selectedDeck.id;
-      let questionsSnapshot: QuestionSnapshot[];
+      const questionsSnapshot = sameDeck
+        ? reshuffleForRepetition(
+            rematchGame.questionsSnapshot,
+            shuffleSettings,
+            "everyone",
+          )
+        : buildGameQuestionsSnapshot(selectedDeck.questions, shuffleSettings);
 
-      if (sameDeck) {
-        // Keep existing snapshot order for modes that are not eachRepetition.
-        questionsSnapshot = reshuffleForRepetition(
-          rematchGame.questionsSnapshot,
-          { answerShuffleMode, questionShuffleMode },
-        );
-      } else {
-        // New deck: shuffle now for once / eachRepetition.
-        questionsSnapshot = buildLaunchSnapshot(
-          selectedDeck.questions,
-          answerShuffleMode,
-          questionShuffleMode,
-        );
-      }
+      const playerSnapshotUpdates = buildPlayerSnapshotUpdates(
+        players,
+        questionsSnapshot,
+        shuffleSettings,
+        sameDeck,
+      );
 
       await resetGameForRematch({
         gameId: rematchGame.id,
         answerIds,
         gameType,
         questionsSnapshot,
-        questionTimeSeconds: Number(questionTime) || DEFAULT_QUESTION_TIME,
+        questionTimeSeconds: parseQuestionTimeSeconds(questionTime),
+        durationSeconds: durationMinutesToSeconds(durationMinutes),
         deckTitle: selectedDeck.title,
         deckId: selectedDeck.id,
+        ...shuffleSettings,
+        playerSnapshotUpdates,
       });
       onOpenChange(false);
     } finally {
@@ -149,14 +220,25 @@ export function GameSetupDialog({
         <DialogHeader>
           <DialogTitle>Play again</DialogTitle>
           <DialogDescription>
-            Pick a deck for the next round. Everyone stays in the lobby.
+            Pick a deck for the next run. Everyone stays in the lobby.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Deck</Label>
-            <Select value={deckId} onValueChange={setDeckId}>
+            <Select
+              value={deckId}
+              onValueChange={(value) => {
+                setDeckId(value);
+                const deck = decks.find((item) => item.id === value);
+                if (deck) {
+                  setQuestionTime(
+                    String(parseQuestionTimeSeconds(deck.questionTimeSeconds)),
+                  );
+                }
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select a deck" />
               </SelectTrigger>
@@ -180,18 +262,17 @@ export function GameSetupDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {GAME_TYPES.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
-                    <span className="flex items-center gap-2">
-                      {type.id === "submarine" ? (
-                        <Ship className="size-4" />
-                      ) : (
-                        <Rocket className="size-4" />
-                      )}
-                      {type.name}
-                    </span>
-                  </SelectItem>
-                ))}
+                {GAME_TYPES.map((type) => {
+                  const Icon = GAME_ICONS[type.id];
+                  return (
+                    <SelectItem key={type.id} value={type.id}>
+                      <span className="flex items-center gap-2">
+                        <Icon className="size-4" />
+                        {type.name}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
             {selectedGame ? (
@@ -203,14 +284,46 @@ export function GameSetupDialog({
 
           <div className="space-y-2">
             <Label htmlFor="question-time">Seconds per question</Label>
-            <Input
+            <NumberInput
               id="question-time"
-              type="number"
-              min={10}
-              max={60}
               value={questionTime}
-              onChange={(event) => setQuestionTime(event.target.value)}
+              onChange={setQuestionTime}
+              min={MIN_QUESTION_TIME}
+              max={MAX_QUESTION_TIME}
+              step={QUESTION_TIME_STEP}
+              ctrlStep={QUESTION_TIME_CTRL_STEP}
+              shiftStep={QUESTION_TIME_SHIFT_STEP}
+              ctrlShiftStep={QUESTION_TIME_CTRL_SHIFT_STEP}
             />
+          </div>
+
+          <div className="space-y-3">
+            <Label htmlFor="game-duration">Game duration (minutes)</Label>
+            <NumberInput
+              id="game-duration"
+              value={durationMinutes}
+              onChange={setDurationMinutes}
+              min={MIN_DURATION_MINUTES}
+              max={MAX_DURATION_MINUTES}
+              step={DURATION_STEP_MINUTES}
+            />
+            <div className="flex flex-wrap gap-2">
+              {DURATION_PRESETS.map((preset) => (
+                <Button
+                  key={preset.minutes}
+                  type="button"
+                  size="sm"
+                  variant={
+                    parseDurationMinutes(durationMinutes) === preset.minutes
+                      ? "default"
+                      : "outline"
+                  }
+                  onClick={() => setDurationMinutes(String(preset.minutes))}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -237,9 +350,10 @@ export function toSnapshot(
     questionType?: unknown;
   }[],
 ): QuestionSnapshot[] {
-  return buildQuestionsSnapshot(
-    questions,
-    { answerShuffleMode: "none", questionShuffleMode: "none" },
-    { shuffleAnswers: false, shuffleQuestions: false },
-  );
+  return buildGameQuestionsSnapshot(questions, {
+    answerShuffleMode: "none",
+    questionShuffleMode: "none",
+    answerShuffleScope: "everyone",
+    questionShuffleScope: "everyone",
+  });
 }

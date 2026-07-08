@@ -1,126 +1,122 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { id } from "@instantdb/react";
 import { db } from "@/lib/db";
 import {
-  REVEAL_DELAY_MS,
-  STARTING_LIVES,
-  getTimeRemaining,
-  isQuestionExpired,
-  resolveQuestion,
+  buildPlayerQuestionsSnapshot,
+  computeTotalDistance,
+  getDeckShuffleConfig,
+  getGameTimeRemaining,
+  isGameExpired,
+  needsPerPlayerSnapshot,
+  parseQuestionsSnapshot,
 } from "@/lib/game";
-import type { AnswerRecord, GameRecord, PlayerRecord } from "@/lib/types";
+import type {
+  AnswerRecord,
+  GameRecord,
+  QuestionSnapshot,
+} from "@/lib/types";
 
 export function useHostGameEngine(
   game: GameRecord | null,
-  players: PlayerRecord[],
   answers: AnswerRecord[],
 ) {
-  const isResolvingRef = useRef(false);
-  const [revealing, setRevealing] = useState(false);
-  const [revealAnswer, setRevealAnswer] = useState<number | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  const isEndingRef = useRef(false);
 
   useEffect(() => {
-    if (!game || game.status !== "playing") return;
+    if (!game || game.status !== "playing" || !game.startedAt) return;
 
     const interval = window.setInterval(() => {
-      const currentNow = Date.now();
-      setNow(currentNow);
+      if (isEndingRef.current) return;
+      if (!isGameExpired(game.startedAt, game.durationSeconds)) return;
 
-      if (revealing || isResolvingRef.current) return;
-      if (!game.questionStartedAt) return;
-      if (players.length === 0) return;
-
-      const questionIndex = game.currentQuestionIndex;
-      const currentAnswers = answers.filter(
-        (answer) => answer.questionIndex === questionIndex,
-      );
-      const allAnswered = currentAnswers.length >= players.length;
-      const expired = isQuestionExpired(
-        game.questionStartedAt,
-        game.questionTimeSeconds,
-        currentNow,
-      );
-
-      if (!allAnswered && !expired) return;
-
-      isResolvingRef.current = true;
-      window.setTimeout(() => {
-        setRevealing(true);
-        setRevealAnswer(
-          game.questionsSnapshot[questionIndex]?.correctIndex ?? null,
-        );
-
-        const correctCount = currentAnswers.filter(
-          (answer) => answer.isCorrect,
-        ).length;
-        const { progressGain, livesLost } = resolveQuestion({
-          correctCount,
-          playerCount: players.length,
-          questionCount: game.questionsSnapshot.length,
-        });
-
-        const nextProgress = Math.min(100, game.progress + progressGain);
-        const nextLives = game.lives - livesLost;
-        const isLastQuestion =
-          questionIndex >= game.questionsSnapshot.length - 1;
-
-        window.setTimeout(() => {
-          const endedAt = Date.now();
-          if (nextLives <= 0) {
-            void db.transact(
-              db.tx.games[game.id].update({
-                status: "lost",
-                progress: nextProgress,
-                lives: 0,
-                endedAt,
-              }),
-            );
-          } else if (isLastQuestion) {
-            void db.transact(
-              db.tx.games[game.id].update({
-                status: nextLives > 0 ? "won" : "lost",
-                progress: nextProgress,
-                lives: Math.max(0, nextLives),
-                endedAt,
-              }),
-            );
-          } else {
-            void db.transact(
-              db.tx.games[game.id].update({
-                currentQuestionIndex: questionIndex + 1,
-                questionStartedAt: Date.now(),
-                progress: nextProgress,
-                lives: nextLives,
-              }),
-            );
-          }
-
-          setRevealing(false);
-          setRevealAnswer(null);
-          isResolvingRef.current = false;
-        }, REVEAL_DELAY_MS);
-      }, 0);
-    }, 250);
+      isEndingRef.current = true;
+      void endGame(game.id, game, answers).finally(() => {
+        isEndingRef.current = false;
+      });
+    }, 500);
 
     return () => window.clearInterval(interval);
-  }, [answers, game, players.length, revealing]);
+  }, [answers, game]);
 
   const timeRemaining = game
-    ? getTimeRemaining(game.questionStartedAt, game.questionTimeSeconds, now)
+    ? getGameTimeRemaining(game.startedAt, game.durationSeconds)
     : 0;
 
-  return { revealing, revealAnswer, timeRemaining };
+  return { timeRemaining };
+}
+
+async function upsertHighScore({
+  deckId,
+  gameType,
+  distanceMeters,
+}: {
+  deckId: string | null | undefined;
+  gameType: string;
+  distanceMeters: number;
+}) {
+  if (!deckId || distanceMeters <= 0) return;
+
+  const { data } = await db.queryOnce({
+    highScores: {
+      $: {
+        where: {
+          "deck.id": deckId,
+          gameType,
+        },
+      },
+    },
+  });
+
+  const existing = data.highScores[0];
+  if (existing && existing.distanceMeters >= distanceMeters) return;
+
+  const achievedAt = Date.now();
+  if (existing) {
+    await db.transact(
+      db.tx.highScores[existing.id].update({
+        distanceMeters,
+        achievedAt,
+      }),
+    );
+    return;
+  }
+
+  const highScoreId = id();
+  await db.transact(
+    db.tx.highScores[highScoreId]
+      .update({
+        gameType,
+        distanceMeters,
+        achievedAt,
+      })
+      .link({ deck: deckId }),
+  );
+}
+
+export async function endGame(
+  gameId: string,
+  game: GameRecord,
+  answers: AnswerRecord[],
+) {
+  const totalDistance = computeTotalDistance(answers);
+  await db.transact(
+    db.tx.games[gameId].update({
+      status: "ended",
+      endedAt: Date.now(),
+    }),
+  );
+  await upsertHighScore({
+    deckId: game.deckId,
+    gameType: game.gameType,
+    distanceMeters: totalDistance,
+  });
 }
 
 export async function startGame(gameId: string) {
   await db.transact(
     db.tx.games[gameId].update({
       status: "playing",
-      currentQuestionIndex: 0,
-      questionStartedAt: Date.now(),
-      progress: 0,
-      lives: STARTING_LIVES,
+      startedAt: Date.now(),
     }),
   );
 }
@@ -131,16 +127,26 @@ export async function launchGame({
   gameType,
   questionsSnapshot,
   questionTimeSeconds,
+  durationSeconds,
   deckTitle,
   deckId,
+  answerShuffleMode,
+  questionShuffleMode,
+  answerShuffleScope,
+  questionShuffleScope,
 }: {
   hostId: string;
   code: string;
   gameType: string;
   questionsSnapshot: unknown;
   questionTimeSeconds: number;
+  durationSeconds: number;
   deckTitle?: string;
   deckId?: string;
+  answerShuffleMode: string;
+  questionShuffleMode: string;
+  answerShuffleScope: string;
+  questionShuffleScope: string;
 }) {
   const gameId = id();
   await db.transact(
@@ -149,11 +155,13 @@ export async function launchGame({
         code,
         gameType,
         status: "lobby",
-        currentQuestionIndex: 0,
-        progress: 0,
-        lives: STARTING_LIVES,
+        durationSeconds,
         questionTimeSeconds,
         questionsSnapshot,
+        answerShuffleMode,
+        questionShuffleMode,
+        answerShuffleScope,
+        questionShuffleScope,
         createdAt: Date.now(),
         deckTitle,
         deckId,
@@ -161,6 +169,34 @@ export async function launchGame({
       .link({ host: hostId }),
   );
   return { gameId, code };
+}
+
+function buildInitialPlayerSnapshot(
+  gameSnapshot: QuestionSnapshot[],
+  settings: ReturnType<typeof getDeckShuffleConfig>,
+  playerId: string,
+): QuestionSnapshot[] {
+  if (needsPerPlayerSnapshot(settings)) {
+    return buildPlayerQuestionsSnapshot(gameSnapshot, settings, playerId);
+  }
+  return [...gameSnapshot];
+}
+
+async function buildPlayerSnapshotForGame(
+  gameId: string,
+  playerId: string,
+): Promise<QuestionSnapshot[]> {
+  const { data } = await db.queryOnce({
+    games: {
+      $: { where: { id: gameId } },
+    },
+  });
+  const game = data.games[0];
+  if (!game) return [];
+
+  const settings = getDeckShuffleConfig(game);
+  const baseSnapshot = parseQuestionsSnapshot(game.questionsSnapshot);
+  return buildInitialPlayerSnapshot(baseSnapshot, settings, playerId);
 }
 
 export async function joinGame({
@@ -173,11 +209,17 @@ export async function joinGame({
   nickname: string;
 }) {
   const playerId = id();
+  const playerSnapshot = await buildPlayerSnapshotForGame(gameId, playerId);
+
   await db.transact(
     db.tx.players[playerId]
       .update({
         nickname: nickname.trim(),
         joinedAt: Date.now(),
+        questionsSnapshot: playerSnapshot,
+        currentQuestionIndex: 0,
+        streak: 0,
+        repetition: 0,
       })
       .link({ game: gameId, user: userId }),
   );
@@ -220,23 +262,35 @@ export async function resetGameForRematch({
   gameType,
   questionsSnapshot,
   questionTimeSeconds,
+  durationSeconds,
   deckTitle,
   deckId,
+  answerShuffleMode,
+  questionShuffleMode,
+  answerShuffleScope,
+  questionShuffleScope,
+  playerSnapshotUpdates,
 }: {
   gameId: string;
   answerIds: string[];
   gameType?: string;
   questionsSnapshot?: unknown;
   questionTimeSeconds?: number;
+  durationSeconds?: number;
   deckTitle?: string;
   deckId?: string;
+  answerShuffleMode?: string;
+  questionShuffleMode?: string;
+  answerShuffleScope?: string;
+  questionShuffleScope?: string;
+  playerSnapshotUpdates?: {
+    playerId: string;
+    questionsSnapshot: QuestionSnapshot[] | null;
+  }[];
 }) {
   const gameUpdates: Record<string, unknown> = {
     status: "lobby",
-    currentQuestionIndex: 0,
-    questionStartedAt: null,
-    progress: 0,
-    lives: STARTING_LIVES,
+    startedAt: null,
     endedAt: null,
   };
 
@@ -247,11 +301,38 @@ export async function resetGameForRematch({
   if (questionTimeSeconds !== undefined) {
     gameUpdates.questionTimeSeconds = questionTimeSeconds;
   }
+  if (durationSeconds !== undefined) {
+    gameUpdates.durationSeconds = durationSeconds;
+  }
   if (deckTitle !== undefined) gameUpdates.deckTitle = deckTitle;
   if (deckId !== undefined) gameUpdates.deckId = deckId;
+  if (answerShuffleMode !== undefined) {
+    gameUpdates.answerShuffleMode = answerShuffleMode;
+  }
+  if (questionShuffleMode !== undefined) {
+    gameUpdates.questionShuffleMode = questionShuffleMode;
+  }
+  if (answerShuffleScope !== undefined) {
+    gameUpdates.answerShuffleScope = answerShuffleScope;
+  }
+  if (questionShuffleScope !== undefined) {
+    gameUpdates.questionShuffleScope = questionShuffleScope;
+  }
+
+  const playerTxes =
+    playerSnapshotUpdates?.map(({ playerId, questionsSnapshot: snapshot }) =>
+      db.tx.players[playerId].update({
+        questionsSnapshot: snapshot,
+        currentQuestionIndex: 0,
+        streak: 0,
+        repetition: 0,
+        questionStartedAt: null,
+      }),
+    ) ?? [];
 
   await db.transact([
     ...answerIds.map((answerId) => db.tx.answers[answerId].delete()),
+    ...playerTxes,
     db.tx.games[gameId].update(gameUpdates),
   ]);
 }

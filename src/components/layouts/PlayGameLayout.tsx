@@ -40,22 +40,19 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useQuestionTimer } from "@/hooks/useQuestionTimer";
 import { clearStoredPlayerId } from "@/lib/auth";
-import { STARTING_LIVES } from "@/lib/game";
+import { formatDistance } from "@/lib/game";
 import { joinSearchDefaults } from "@/lib/routes";
 import { useCancelGame } from "@/lib/useCancelGame";
 import { useGameSession } from "@/lib/useGameSession";
 import { useLeaveGame } from "@/lib/useLeaveGame";
 
-import type { AnswerRecord } from "@/lib/types";
-
 function SquadPanel({
   players,
-  currentAnswers,
-  totalPlayers,
-  timeRemaining,
-  questionTimeSeconds,
+  playerProgress,
+  totalDistance,
+  gameTimeRemaining,
+  durationSeconds,
 }: {
   players: {
     id: string;
@@ -63,37 +60,47 @@ function SquadPanel({
     iconId?: string | null;
     avatarColor?: string | null;
   }[];
-  currentAnswers: AnswerRecord[];
-  totalPlayers: number;
-  timeRemaining: number;
-  questionTimeSeconds: number;
+  playerProgress: {
+    player: { id: string };
+    hasAnsweredCurrent: boolean;
+    distance: number;
+    streak: number;
+  }[];
+  totalDistance: number;
+  gameTimeRemaining: number;
+  durationSeconds: number;
 }) {
-  const answeredIds = new Set(
-    currentAnswers.map((answer) => answer.player?.id).filter(Boolean),
+  const progressByPlayer = new Map(
+    playerProgress.map((item) => [item.player.id, item]),
   );
 
   return (
     <div className="flex h-full flex-col gap-4 p-4">
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Timer
+          Time left
         </p>
         <p className="font-mono text-3xl font-bold tabular-nums text-primary">
-          {Math.ceil(timeRemaining)}
+          {Math.ceil(gameTimeRemaining)}
         </p>
         <Progress
-          value={(timeRemaining / questionTimeSeconds) * 100}
+          value={(gameTimeRemaining / durationSeconds) * 100}
           className="mt-2 h-1.5"
         />
       </div>
       <div>
-        <p className="mb-2 text-sm font-medium">
-          Squad ({currentAnswers.length}/{totalPlayers} answered)
+        <p className="text-xs text-muted-foreground">Squad distance</p>
+        <p className="font-mono text-xl font-bold">
+          {formatDistance(totalDistance)}
         </p>
+      </div>
+      <div>
+        <p className="mb-2 text-sm font-medium">Squad</p>
         <ul className="space-y-2">
           {players.map((player) => {
-            const hasAnswered = answeredIds.has(player.id);
-            const status = hasAnswered ? "Answered" : "Waiting";
+            const progress = progressByPlayer.get(player.id);
+            const hasAnswered = progress?.hasAnsweredCurrent ?? false;
+            const status = hasAnswered ? "Answered" : "Playing";
 
             return (
               <li
@@ -142,18 +149,14 @@ export function PlayGameLayout({
     game,
     players,
     gameMeta,
-    currentAnswers,
     isLoading,
     isHost,
     currentPlayer,
+    totalDistance,
+    gameTimeRemaining,
+    playerProgress,
   } = useGameSession(code, playerId);
   const { leave, isLeaving } = useLeaveGame(code);
-
-  const timeRemaining = useQuestionTimer(
-    game?.questionStartedAt ?? undefined,
-    game?.questionTimeSeconds ?? 0,
-    game?.status === "playing",
-  );
 
   useEffect(() => {
     if (!isMobile) {
@@ -188,6 +191,13 @@ export function PlayGameLayout({
     upperCode,
   ]);
 
+  useEffect(() => {
+    if (isLoading || !game) return;
+    if (game.status === "ended") {
+      void navigate({ to: "/g/$code", params: { code: upperCode } });
+    }
+  }, [game, isLoading, navigate, upperCode]);
+
   const handleLeave = () => {
     if (!currentPlayer) return;
     void leave(currentPlayer.id);
@@ -218,10 +228,10 @@ export function PlayGameLayout({
   const squadPanel = (
     <SquadPanel
       players={players}
-      currentAnswers={currentAnswers}
-      totalPlayers={players.length}
-      timeRemaining={timeRemaining}
-      questionTimeSeconds={game.questionTimeSeconds}
+      playerProgress={playerProgress}
+      totalDistance={totalDistance}
+      gameTimeRemaining={gameTimeRemaining}
+      durationSeconds={game.durationSeconds}
     />
   );
 
@@ -249,28 +259,21 @@ export function PlayGameLayout({
           <SidebarContent className="p-4">
             <div className="space-y-4">
               <div>
-                <p className="text-xs text-muted-foreground">
-                  Question {game.currentQuestionIndex + 1} of{" "}
-                  {game.questionsSnapshot.length}
+                <p className="text-xs text-muted-foreground">Squad distance</p>
+                <p className="text-lg font-semibold">
+                  {formatDistance(totalDistance)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">
-                  {gameMeta?.resource ?? "Resource"}
+                <p className="text-xs text-muted-foreground">Time remaining</p>
+                <p className="font-mono text-lg font-semibold tabular-nums">
+                  {Math.ceil(gameTimeRemaining)}s
                 </p>
-                <p className="text-lg font-semibold">
-                  {game.lives} / {STARTING_LIVES}
-                </p>
+                <Progress
+                  value={(gameTimeRemaining / game.durationSeconds) * 100}
+                  className="mt-1 h-2"
+                />
               </div>
-              {isHost ? (
-                <div>
-                  <p className="text-xs text-muted-foreground">Progress</p>
-                  <Progress value={game.progress} className="mt-1 h-2" />
-                  <p className="mt-1 text-sm font-medium">
-                    {Math.round(game.progress)}%
-                  </p>
-                </div>
-              ) : null}
             </div>
             {showLeaveButton ? (
               <LeaveGameButton
@@ -292,7 +295,7 @@ export function PlayGameLayout({
                 <SheetHeader>
                   <SheetTitle>Squad</SheetTitle>
                   <SheetDescription>
-                    {currentAnswers.length}/{players.length} players answered
+                    {formatDistance(totalDistance)} traveled together
                   </SheetDescription>
                 </SheetHeader>
                 {squadPanel}

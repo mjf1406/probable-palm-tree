@@ -1,6 +1,22 @@
 import { isGoogleUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { GAME_TYPES, parseQuestionsSnapshot } from "@/lib/game";
+import {
+  GAME_TYPES,
+  computePlayerDistance,
+  computeTotalDistance,
+  getGameTimeRemaining,
+  getStreakMultiplier,
+  getTimeRemaining,
+  parseDurationSeconds,
+  parseGameType,
+  parseQuestionsSnapshot,
+  parseSettingScope,
+  parseShuffleMode,
+} from "@/lib/game";
+import {
+  decodeAnswerQuestionIndex,
+  getAnswerQuestionIndex,
+} from "@/lib/usePlayerGameEngine";
 import type { AnswerRecord, GameRecord, PlayerRecord } from "@/lib/types";
 
 export function normalizeGame(
@@ -10,19 +26,52 @@ export function normalizeGame(
   return {
     id: raw.id as string,
     code: raw.code as string,
-    gameType: raw.gameType as GameRecord["gameType"],
+    gameType: parseGameType(raw.gameType),
     status: raw.status as GameRecord["status"],
-    currentQuestionIndex: raw.currentQuestionIndex as number,
-    questionStartedAt: raw.questionStartedAt as number | undefined,
-    progress: raw.progress as number,
-    lives: raw.lives as number,
+    durationSeconds: parseDurationSeconds(raw.durationSeconds),
+    startedAt: raw.startedAt as number | undefined,
     questionTimeSeconds: raw.questionTimeSeconds as number,
     questionsSnapshot: parseQuestionsSnapshot(raw.questionsSnapshot),
+    answerShuffleMode: parseShuffleMode(raw.answerShuffleMode),
+    questionShuffleMode: parseShuffleMode(raw.questionShuffleMode),
+    answerShuffleScope: parseSettingScope(raw.answerShuffleScope),
+    questionShuffleScope: parseSettingScope(raw.questionShuffleScope),
     createdAt: raw.createdAt as number,
     deckTitle: raw.deckTitle as string | undefined,
     deckId: raw.deckId as string | undefined,
     endedAt: raw.endedAt as number | undefined,
     host: (raw.host as { id: string } | undefined) ?? null,
+  };
+}
+
+function normalizePlayer(raw: Record<string, unknown>): PlayerRecord {
+  const snapshot = raw.questionsSnapshot;
+  return {
+    id: raw.id as string,
+    nickname: raw.nickname as string,
+    joinedAt: raw.joinedAt as number,
+    iconId: raw.iconId as string | undefined,
+    avatarColor: raw.avatarColor as string | undefined,
+    questionsSnapshot: snapshot
+      ? parseQuestionsSnapshot(snapshot)
+      : null,
+    currentQuestionIndex: (raw.currentQuestionIndex as number) ?? 0,
+    streak: (raw.streak as number) ?? 0,
+    repetition: (raw.repetition as number) ?? 0,
+    questionStartedAt: raw.questionStartedAt as number | undefined,
+    user: (raw.user as { id: string } | undefined) ?? null,
+  };
+}
+
+function normalizeAnswer(raw: Record<string, unknown>): AnswerRecord {
+  return {
+    id: raw.id as string,
+    questionIndex: raw.questionIndex as number,
+    choiceIndex: raw.choiceIndex as number,
+    isCorrect: raw.isCorrect as boolean,
+    answeredAt: raw.answeredAt as number,
+    distanceGained: (raw.distanceGained as number) ?? 0,
+    player: (raw.player as { id: string; nickname: string } | undefined) ?? null,
   };
 }
 
@@ -40,8 +89,16 @@ export function useGameSession(code: string, playerId: string | null) {
   });
 
   const game = normalizeGame(data?.games?.[0] as Record<string, unknown>);
-  const players = (game ? (data?.games?.[0]?.players ?? []) : []) as PlayerRecord[];
-  const answers = (game ? (data?.games?.[0]?.answers ?? []) : []) as AnswerRecord[];
+  const players = (game
+    ? (data?.games?.[0]?.players ?? []).map((player) =>
+        normalizePlayer(player as Record<string, unknown>),
+      )
+    : []) as PlayerRecord[];
+  const answers = (game
+    ? (data?.games?.[0]?.answers ?? []).map((answer) =>
+        normalizeAnswer(answer as Record<string, unknown>),
+      )
+    : []) as AnswerRecord[];
 
   const isHost = Boolean(
     user && game?.host?.id === user.id && isGoogleUser(user),
@@ -50,14 +107,68 @@ export function useGameSession(code: string, playerId: string | null) {
     ? players.find((player) => player.id === playerId)
     : null;
   const gameMeta = GAME_TYPES.find((type) => type.id === game?.gameType);
-  const currentQuestion =
-    game?.questionsSnapshot[game.currentQuestionIndex] ?? null;
-  const currentAnswers = answers.filter(
-    (answer) => answer.questionIndex === game?.currentQuestionIndex,
-  );
-  const myAnswer = currentPlayer
-    ? currentAnswers.find((answer) => answer.player?.id === currentPlayer.id)
+
+  const playerSnapshot =
+    currentPlayer?.questionsSnapshot ?? game?.questionsSnapshot ?? [];
+  const playerQuestionIndex = currentPlayer?.currentQuestionIndex ?? 0;
+  const currentQuestion = playerSnapshot[playerQuestionIndex] ?? null;
+
+  const answerQuestionIndex = currentPlayer
+    ? getAnswerQuestionIndex(
+        currentPlayer.currentQuestionIndex,
+        currentPlayer.repetition,
+      )
     : null;
+
+  const myAnswer =
+    currentPlayer && answerQuestionIndex !== null
+      ? answers.find(
+          (answer) =>
+            answer.player?.id === currentPlayer.id &&
+            answer.questionIndex === answerQuestionIndex,
+        )
+      : null;
+
+  const totalDistance = computeTotalDistance(answers);
+  const myDistance = currentPlayer
+    ? computePlayerDistance(answers, currentPlayer.id)
+    : 0;
+  const myStreak = currentPlayer?.streak ?? 0;
+  const myStreakMultiplier = getStreakMultiplier(myStreak + 1);
+  const questionTimeRemaining =
+    currentPlayer && game
+      ? getTimeRemaining(
+          currentPlayer.questionStartedAt,
+          game.questionTimeSeconds,
+        )
+      : 0;
+  const gameTimeRemaining = game
+    ? getGameTimeRemaining(game.startedAt, game.durationSeconds)
+    : 0;
+
+  const playerProgress = players.map((player) => {
+    const snapshot = player.questionsSnapshot ?? game?.questionsSnapshot ?? [];
+    const { repetition, questionIndex } = decodeAnswerQuestionIndex(
+      getAnswerQuestionIndex(player.currentQuestionIndex, player.repetition),
+    );
+    return {
+      player,
+      distance: computePlayerDistance(answers, player.id),
+      streak: player.streak,
+      questionNumber: questionIndex + 1,
+      repetition: repetition + 1,
+      totalQuestions: snapshot.length,
+      hasAnsweredCurrent: answers.some(
+        (answer) =>
+          answer.player?.id === player.id &&
+          answer.questionIndex ===
+            getAnswerQuestionIndex(
+              player.currentQuestionIndex,
+              player.repetition,
+            ),
+      ),
+    };
+  });
 
   return {
     upperCode,
@@ -70,7 +181,13 @@ export function useGameSession(code: string, playerId: string | null) {
     currentPlayer,
     gameMeta,
     currentQuestion,
-    currentAnswers,
     myAnswer,
+    totalDistance,
+    myDistance,
+    myStreak,
+    myStreakMultiplier,
+    questionTimeRemaining,
+    gameTimeRemaining,
+    playerProgress,
   };
 }

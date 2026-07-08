@@ -212,6 +212,9 @@ async function seed() {
       createdAt: Date.now(),
       answerShuffleMode: "eachRepetition",
       questionShuffleMode: "eachRepetition",
+      answerShuffleScope: "everyone",
+      questionShuffleScope: "everyone",
+      questionTimeSeconds: 20,
     });
 
     const questionTxes = deck.questions.map((question, index) => {
