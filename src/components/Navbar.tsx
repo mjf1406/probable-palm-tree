@@ -82,9 +82,14 @@ function HostNavLinks({
         My decks
       </NavLink>
       {isHost ? (
-        <NavLink to="/games" onNavigate={onNavigate} className={className}>
-          Games
-        </NavLink>
+        <>
+          <NavLink to="/games" onNavigate={onNavigate} className={className}>
+            Games
+          </NavLink>
+          <NavLink to="/high-scores" onNavigate={onNavigate} className={className}>
+            My high scores
+          </NavLink>
+        </>
       ) : null}
     </>
   );

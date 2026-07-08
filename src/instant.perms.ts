@@ -30,8 +30,17 @@ const rules = {
     allow: {
       view: "true",
       create: "auth.id != null",
-      update: "auth.id in data.ref('host.id')",
+      update: "isHost || isTimerExpiredEnd",
       delete: "auth.id in data.ref('host.id')",
+    },
+    bind: {
+      isHost: "auth.id in data.ref('host.id')",
+      isTimerExpiredEnd:
+        "data.status == 'playing' && data.endsAt != null && " +
+        "request.time >= timestamp(data.endsAt) && " +
+        "(auth.id in data.ref('host.id') || auth.id in data.ref('players.user.id')) && " +
+        "newData.status == 'ended' && " +
+        "request.modifiedFields.all(field, field in ['status', 'endedAt'])",
     },
   },
   players: {
@@ -58,6 +67,14 @@ const rules = {
       create: "auth.id != null",
       update: "auth.id != null",
       delete: "auth.id != null",
+    },
+  },
+  userScoreEntries: {
+    allow: {
+      view: "auth.id in data.ref('owner.id')",
+      create: "auth.id != null",
+      update: "auth.id in data.ref('owner.id')",
+      delete: "auth.id in data.ref('owner.id')",
     },
   },
 } satisfies InstantRules;

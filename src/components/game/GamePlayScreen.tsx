@@ -1,7 +1,6 @@
 import { HostPlayScreen } from "@/components/game/HostPlayScreen";
 import { PlayerPlayScreen } from "@/components/game/PlayerPlayScreen";
 import { useGameSession } from "@/lib/useGameSession";
-import { useHostGameEngine } from "@/lib/useHostGameEngine";
 import {
   submitPlayerAnswer,
   usePlayerGameEngine,
@@ -29,7 +28,6 @@ export function GamePlayScreen({ code, playerId }: GamePlayScreenProps) {
     playerProgress,
   } = useGameSession(code, playerId);
 
-  useHostGameEngine(isHost ? game : null, answers);
   usePlayerGameEngine(
     !isHost ? game : null,
     !isHost ? (currentPlayer ?? null) : null,

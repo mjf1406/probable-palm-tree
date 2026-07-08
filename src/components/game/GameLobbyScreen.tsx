@@ -13,6 +13,7 @@ import {
 } from "@/components/game/GameVisuals";
 import { GameSetupDialog } from "@/components/host/GameSetupDialog";
 import { CancelGameButton } from "@/components/game/CancelGameButton";
+import { SaveScoreForm } from "@/components/game/SaveScoreForm";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -293,6 +294,15 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
                 ))}
               </ul>
             </div>
+
+            {isHost && user ? (
+              <SaveScoreForm
+                key={`${game.id}-${game.endedAt ?? "pending"}`}
+                game={game}
+                totalDistance={totalDistance}
+                userId={user.id}
+              />
+            ) : null}
 
             {isHost ? (
               <div className="flex flex-col items-center gap-3">

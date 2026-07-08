@@ -41,6 +41,7 @@ const _schema = i.schema({
       status: i.string().indexed(),
       durationSeconds: i.number().optional(),
       startedAt: i.number().optional(),
+      endsAt: i.number().indexed().optional(),
       questionTimeSeconds: i.number(),
       // default handled in app as DEFAULT_METERS_PER_CORRECT (10)
       metersPerCorrect: i.number().optional(),
@@ -83,6 +84,19 @@ const _schema = i.schema({
       // Route identity for Sea Sailors (so highscores don’t collide across routes)
       seaRouteKey: i.string().indexed().optional(),
       distanceMeters: i.number(),
+      achievedAt: i.number().indexed(),
+    }),
+    userScoreEntries: i.entity({
+      displayName: i.string(),
+      distanceMeters: i.number(),
+      gameType: i.string().indexed(),
+      deckId: i.string().optional(),
+      deckTitle: i.string().optional(),
+      seaRouteKey: i.string().indexed().optional(),
+      seaRouteDistanceMeters: i.number().optional(),
+      gameCode: i.string().optional(),
+      gameId: i.string().indexed(),
+      endedAt: i.number().indexed(),
       achievedAt: i.number().indexed(),
     }),
   },
@@ -131,6 +145,10 @@ const _schema = i.schema({
     highScoreDeck: {
       forward: { on: "highScores", has: "one", label: "deck" },
       reverse: { on: "decks", has: "many", label: "highScores" },
+    },
+    scoreEntryOwner: {
+      forward: { on: "userScoreEntries", has: "one", label: "owner" },
+      reverse: { on: "$users", has: "many", label: "scoreEntries" },
     },
   },
   rooms: {

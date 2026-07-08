@@ -19,6 +19,7 @@ import {
   decodeAnswerQuestionIndex,
   getAnswerQuestionIndex,
 } from "@/lib/usePlayerGameEngine";
+import { useGameExpiryWatcher } from "@/lib/useGameExpiryWatcher";
 import type { AnswerRecord, GameRecord, PlayerRecord } from "@/lib/types";
 
 export function normalizeGame(
@@ -32,6 +33,7 @@ export function normalizeGame(
     status: raw.status as GameRecord["status"],
     durationSeconds: parseDurationSeconds(raw.durationSeconds),
     startedAt: raw.startedAt as number | undefined,
+    endsAt: raw.endsAt as number | undefined,
     questionTimeSeconds: raw.questionTimeSeconds as number,
     metersPerCorrect: parseMetersPerCorrect(raw.metersPerCorrect),
     questionsSnapshot: parseQuestionsSnapshot(raw.questionsSnapshot),
@@ -131,6 +133,18 @@ export function useGameSession(code: string, playerId: string | null) {
   const currentPlayer = playerId
     ? players.find((player) => player.id === playerId)
     : null;
+
+  const tryEndIfExpired = useGameExpiryWatcher(
+    game?.status === "playing" ? game : null,
+    answers,
+    isHost || Boolean(currentPlayer),
+  );
+
+  useEffect(() => {
+    if (game?.status !== "playing") return;
+    tryEndIfExpired(tickNow);
+  }, [game?.status, tickNow, tryEndIfExpired]);
+
   const gameMeta = GAME_TYPES.find((type) => type.id === game?.gameType);
 
   const playerSnapshot =
@@ -168,7 +182,12 @@ export function useGameSession(code: string, playerId: string | null) {
         )
       : 0;
   const gameTimeRemaining = game
-    ? getGameTimeRemaining(game.startedAt, game.durationSeconds, tickNow)
+    ? getGameTimeRemaining(
+        game.startedAt,
+        game.durationSeconds,
+        tickNow,
+        game.endsAt,
+      )
     : 0;
 
   const playerProgress = players.map((player) => {

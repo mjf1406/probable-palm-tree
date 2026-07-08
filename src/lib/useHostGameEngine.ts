@@ -1,13 +1,11 @@
-import { useEffect, useRef } from "react";
 import { id } from "@instantdb/react";
 import { db } from "@/lib/db";
 import {
   buildPlayerQuestionsSnapshot,
   computeTotalDistance,
   getDeckShuffleConfig,
-  getGameTimeRemaining,
-  isGameExpired,
   needsPerPlayerSnapshot,
+  parseDurationSeconds,
   parseQuestionsSnapshot,
 } from "@/lib/game";
 import type {
@@ -15,35 +13,6 @@ import type {
   GameRecord,
   QuestionSnapshot,
 } from "@/lib/types";
-
-export function useHostGameEngine(
-  game: GameRecord | null,
-  answers: AnswerRecord[],
-) {
-  const isEndingRef = useRef(false);
-
-  useEffect(() => {
-    if (!game || game.status !== "playing" || !game.startedAt) return;
-
-    const interval = window.setInterval(() => {
-      if (isEndingRef.current) return;
-      if (!isGameExpired(game.startedAt, game.durationSeconds)) return;
-
-      isEndingRef.current = true;
-      void endGame(game.id, game, answers).finally(() => {
-        isEndingRef.current = false;
-      });
-    }, 500);
-
-    return () => window.clearInterval(interval);
-  }, [answers, game]);
-
-  const timeRemaining = game
-    ? getGameTimeRemaining(game.startedAt, game.durationSeconds)
-    : 0;
-
-  return { timeRemaining };
-}
 
 async function upsertHighScore({
   deckId,
@@ -139,10 +108,39 @@ export async function endGame(
 }
 
 export async function startGame(gameId: string) {
+  const { data } = await db.queryOnce({
+    games: { $: { where: { id: gameId } } },
+  });
+  const raw = data.games[0];
+  if (!raw) return;
+
+  const durationSeconds = parseDurationSeconds(raw.durationSeconds);
+  const now = Date.now();
   await db.transact(
     db.tx.games[gameId].update({
       status: "playing",
-      startedAt: Date.now(),
+      startedAt: now,
+      endsAt: now + durationSeconds * 1000,
+    }),
+  );
+}
+
+export async function adjustGameTime(gameId: string, deltaSeconds: number) {
+  const { data } = await db.queryOnce({
+    games: { $: { where: { id: gameId } } },
+  });
+  const raw = data.games[0];
+  if (!raw || raw.status !== "playing" || raw.endsAt == null) return;
+
+  const durationSeconds = parseDurationSeconds(raw.durationSeconds);
+  const now = Date.now();
+  const newEndsAt = Math.max(now + 1000, raw.endsAt + deltaSeconds * 1000);
+  const newDuration = Math.max(1, durationSeconds + deltaSeconds);
+
+  await db.transact(
+    db.tx.games[gameId].update({
+      endsAt: newEndsAt,
+      durationSeconds: newDuration,
     }),
   );
 }
@@ -351,6 +349,7 @@ export async function resetGameForRematch({
   const gameUpdates: Record<string, unknown> = {
     status: "lobby",
     startedAt: null,
+    endsAt: null,
     endedAt: null,
   };
 

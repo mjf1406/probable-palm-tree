@@ -11,6 +11,7 @@ import {
 import { db } from "@/lib/db";
 import { formatDistance } from "@/lib/game";
 import type { GameRecord } from "@/lib/types";
+import { adjustGameTime } from "@/lib/useHostGameEngine";
 import { cn } from "@/lib/utils";
 
 type HostPlayScreenProps = {
@@ -61,6 +62,13 @@ export function HostPlayScreen({
 
   const bestDistance = highScoreData?.highScores?.[0]?.distanceMeters ?? null;
 
+  const handleAdjustGameTime =
+    game.status === "playing"
+      ? (deltaSeconds: number) => {
+          void adjustGameTime(game.id, deltaSeconds);
+        }
+      : undefined;
+
   return (
     <div className="space-y-6 p-6">
       <DistanceGameVisual
@@ -71,6 +79,7 @@ export function HostPlayScreen({
         bestDistanceMeters={bestDistance}
         distanceLabel={gameMeta?.distanceLabel ?? "Distance"}
         seaRouteDistanceMeters={game.seaRouteDistanceMeters}
+        onAdjustGameTime={handleAdjustGameTime}
       />
 
       <Card>

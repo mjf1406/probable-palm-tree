@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { id } from "@instantdb/react";
 import {
@@ -40,8 +40,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
-import { DEFAULT_QUESTION_TIME, DEFAULT_SHUFFLE_MODE, DEFAULT_SETTING_SCOPE } from "@/lib/game";
-import type { GameRecord } from "@/lib/types";
+import {
+  DEFAULT_QUESTION_TIME,
+  DEFAULT_SHUFFLE_MODE,
+  DEFAULT_SETTING_SCOPE,
+  getGameDeadline,
+  parseDurationSeconds,
+} from "@/lib/game";
+import type { AnswerRecord, GameRecord } from "@/lib/types";
+import { normalizeGame } from "@/lib/useGameSession";
+import { endGame } from "@/lib/useHostGameEngine";
 import { cn } from "@/lib/utils";
 
 const RECENT_GAME_MS = 24 * 60 * 60 * 1000;
@@ -308,6 +316,85 @@ export function HostDashboard() {
         (game.endedAt != null && game.endedAt >= cutoff),
     );
   }, [data?.$users]);
+
+  const endingGameIdsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    const playingGames = activeGames.filter((game) => game.status === "playing");
+    if (playingGames.length === 0) return;
+
+    const timeouts: number[] = [];
+
+    const endExpiredGame = (rawGame: GameRecord) => {
+      if (endingGameIdsRef.current.has(rawGame.id)) return;
+
+      endingGameIdsRef.current.add(rawGame.id);
+      void (async () => {
+        try {
+          const { data: gameData } = await db.queryOnce({
+            games: {
+              $: { where: { id: rawGame.id } },
+              answers: { player: {} },
+            },
+          });
+          const game = normalizeGame(
+            gameData.games[0] as Record<string, unknown> | undefined,
+          );
+          if (!game || game.status !== "playing") return;
+
+          const answers = (gameData.games[0]?.answers ?? []).map(
+            (answer) =>
+              ({
+                id: answer.id as string,
+                questionIndex: answer.questionIndex as number,
+                choiceIndex: answer.choiceIndex as number,
+                isCorrect: answer.isCorrect as boolean,
+                answeredAt: answer.answeredAt as number,
+                distanceGained: (answer.distanceGained as number) ?? 0,
+                player:
+                  (answer.player as
+                    | { id: string; nickname: string }
+                    | undefined) ?? null,
+              }) satisfies AnswerRecord,
+          );
+
+          await endGame(game.id, game, answers);
+        } catch {
+          // Another client may have already ended the game.
+        } finally {
+          endingGameIdsRef.current.delete(rawGame.id);
+        }
+      })();
+    };
+
+    for (const rawGame of playingGames) {
+      const durationSeconds = parseDurationSeconds(rawGame.durationSeconds);
+      const deadline = getGameDeadline(
+        rawGame.startedAt,
+        durationSeconds,
+        rawGame.endsAt,
+      );
+      if (deadline == null) continue;
+
+      const msUntilEnd = deadline - Date.now();
+      if (msUntilEnd <= 0) {
+        endExpiredGame(rawGame);
+        continue;
+      }
+
+      timeouts.push(
+        window.setTimeout(() => {
+          endExpiredGame(rawGame);
+        }, msUntilEnd),
+      );
+    }
+
+    return () => {
+      for (const timeout of timeouts) {
+        window.clearTimeout(timeout);
+      }
+    };
+  }, [activeGames]);
 
   const handleCreateDeck = async () => {
     if (!user || !newTitle.trim()) return;

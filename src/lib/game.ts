@@ -462,11 +462,26 @@ export function getLevelProgress(
     return { level, progressPercent, nextLevel };
 }
 
+export function getGameDeadline(
+    startedAt: number | undefined | null,
+    durationSeconds: number,
+    endsAt?: number | null,
+): number | null {
+    if (endsAt != null) return endsAt;
+    if (startedAt != null) return startedAt + durationSeconds * 1000;
+    return null;
+}
+
 export function getGameTimeRemaining(
     startedAt: number | undefined | null,
     durationSeconds: number,
     now = Date.now(),
+    endsAt?: number | null,
 ): number {
+    const deadline = getGameDeadline(startedAt, durationSeconds, endsAt);
+    if (deadline != null) {
+        return Math.max(0, (deadline - now) / 1000);
+    }
     if (!startedAt) return durationSeconds;
     const elapsed = (now - startedAt) / 1000;
     return Math.max(0, durationSeconds - elapsed);
@@ -500,8 +515,9 @@ export function isGameExpired(
     startedAt: number | undefined | null,
     durationSeconds: number,
     now = Date.now(),
+    endsAt?: number | null,
 ): boolean {
-    return getGameTimeRemaining(startedAt, durationSeconds, now) <= 0;
+    return getGameTimeRemaining(startedAt, durationSeconds, now, endsAt) <= 0;
 }
 
 export function formatDistance(meters: number): string {

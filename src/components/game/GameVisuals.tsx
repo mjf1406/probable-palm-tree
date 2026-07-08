@@ -1,10 +1,10 @@
 import { Drill, Plane, Rocket, Sailboat, Ship, Trophy, type LucideIcon } from "lucide-react";
+import { GameTimeControls } from "@/components/game/GameTimeControls";
 import { Progress } from "@/components/ui/progress";
 import {
   GAME_LEVELS,
   formatDistance,
   formatGoalDistance,
-  formatHMSMilliseconds,
   getLevelForDistance,
   getLevelProgress,
   type GameType,
@@ -20,6 +20,7 @@ type DistanceGameVisualProps = {
   distanceLabel?: string;
   seaRouteDistanceMeters?: number | null;
   className?: string;
+  onAdjustGameTime?: (deltaSeconds: number) => void;
 };
 
 const VEHICLE_ICONS: Record<GameType, LucideIcon> = {
@@ -49,6 +50,7 @@ export function DistanceGameVisual({
   distanceLabel,
   seaRouteDistanceMeters,
   className,
+  onAdjustGameTime,
 }: DistanceGameVisualProps) {
   const config = GAME_LEVELS[gameType];
   const { level, progressPercent } = getLevelProgress(gameType, distanceMeters);
@@ -107,14 +109,16 @@ export function DistanceGameVisual({
               </p>
             ) : null}
           </div>
-          <div className="text-right">
-            <p className="text-xs font-medium uppercase tracking-wider text-white/60">
-              Time left
-            </p>
-            <p className="font-mono text-3xl font-bold tabular-nums text-sky-300">
-              {formatHMSMilliseconds(timeRemainingSeconds)}
-            </p>
-          </div>
+          <GameTimeControls
+            timeRemainingSeconds={timeRemainingSeconds}
+            durationSeconds={durationSeconds}
+            onAdjustGameTime={onAdjustGameTime}
+            align="right"
+            labelClassName="text-white/60"
+            timeClassName="text-sky-300"
+            progressClassName="h-1 bg-white/10"
+            buttonClassName="border-white/20 text-white hover:bg-white/10"
+          />
         </div>
 
         <div className="relative h-56 overflow-hidden rounded-xl border border-white/10 bg-black/30">
@@ -201,11 +205,6 @@ export function DistanceGameVisual({
             High score to beat: {formatDistance(bestDistanceMeters)}
           </p>
         ) : null}
-
-        <Progress
-          value={(timeRemainingSeconds / durationSeconds) * 100}
-          className="h-1 bg-white/10"
-        />
       </div>
     </div>
   );

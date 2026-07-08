@@ -4,12 +4,12 @@ import { Users } from "lucide-react";
 import { toast } from "sonner";
 import { GameCodeDisplay } from "@/components/GameCodeDisplay";
 import { DisconnectKickWatcher } from "@/components/game/DisconnectKickWatcher";
+import { GameTimeControls } from "@/components/game/GameTimeControls";
 import { LeaveGameButton } from "@/components/game/LeaveGameButton";
 import { GameHostPresence } from "@/components/game/GamePresence";
 import { PlayerAvatar } from "@/components/game/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,8 +41,9 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { clearStoredPlayerId } from "@/lib/auth";
-import { formatDistance, formatHMSMilliseconds } from "@/lib/game";
+import { formatDistance } from "@/lib/game";
 import { joinSearchDefaults } from "@/lib/routes";
+import { adjustGameTime } from "@/lib/useHostGameEngine";
 import { useCancelGame } from "@/lib/useCancelGame";
 import { useGameSession } from "@/lib/useGameSession";
 import { useLeaveGame } from "@/lib/useLeaveGame";
@@ -53,6 +54,7 @@ function SquadPanel({
   totalDistance,
   gameTimeRemaining,
   durationSeconds,
+  onAdjustGameTime,
 }: {
   players: {
     id: string;
@@ -69,6 +71,7 @@ function SquadPanel({
   totalDistance: number;
   gameTimeRemaining: number;
   durationSeconds: number;
+  onAdjustGameTime?: (deltaSeconds: number) => void;
 }) {
   const progressByPlayer = new Map(
     playerProgress.map((item) => [item.player.id, item]),
@@ -76,18 +79,12 @@ function SquadPanel({
 
   return (
     <div className="flex h-full flex-col gap-4 p-4">
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Time left
-        </p>
-        <p className="font-mono text-3xl font-bold tabular-nums text-primary">
-          {formatHMSMilliseconds(gameTimeRemaining)}
-        </p>
-        <Progress
-          value={(gameTimeRemaining / durationSeconds) * 100}
-          className="mt-2 h-1.5"
-        />
-      </div>
+      <GameTimeControls
+        timeRemainingSeconds={gameTimeRemaining}
+        durationSeconds={durationSeconds}
+        onAdjustGameTime={onAdjustGameTime}
+        timeClassName="text-primary"
+      />
       <div>
         <p className="text-xs text-muted-foreground">Squad distance</p>
         <p className="font-mono text-xl font-bold">
@@ -211,6 +208,13 @@ export function PlayGameLayout({
     );
   };
 
+  const handleAdjustGameTime =
+    isHost && game.status === "playing"
+      ? (deltaSeconds: number) => {
+          void adjustGameTime(game.id, deltaSeconds);
+        }
+      : undefined;
+
   const showLeaveButton = !isHost && Boolean(currentPlayer);
 
   if (isLoading || !game) {
@@ -232,6 +236,7 @@ export function PlayGameLayout({
       totalDistance={totalDistance}
       gameTimeRemaining={gameTimeRemaining}
       durationSeconds={game.durationSeconds}
+      onAdjustGameTime={handleAdjustGameTime}
     />
   );
 
@@ -264,16 +269,14 @@ export function PlayGameLayout({
                   {formatDistance(totalDistance)}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Time remaining</p>
-                <p className="font-mono text-lg font-semibold tabular-nums">
-                  {formatHMSMilliseconds(gameTimeRemaining)}
-                </p>
-                <Progress
-                  value={(gameTimeRemaining / game.durationSeconds) * 100}
-                  className="mt-1 h-2"
-                />
-              </div>
+              <GameTimeControls
+                label="Time remaining"
+                timeRemainingSeconds={gameTimeRemaining}
+                durationSeconds={game.durationSeconds}
+                onAdjustGameTime={handleAdjustGameTime}
+                labelClassName="normal-case tracking-normal text-muted-foreground"
+                timeClassName="text-lg font-semibold"
+              />
             </div>
             {showLeaveButton ? (
               <LeaveGameButton
