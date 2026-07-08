@@ -27,7 +27,7 @@ export function normalizeGame(
 }
 
 export function useGameSession(code: string, playerId: string | null) {
-  const { user } = db.useAuth();
+  const { user, isLoading: authIsLoading } = db.useAuth();
   const upperCode = code.toUpperCase();
 
   const { isLoading, data, error } = db.useQuery({
@@ -61,7 +61,7 @@ export function useGameSession(code: string, playerId: string | null) {
 
   return {
     upperCode,
-    isLoading,
+    isLoading: isLoading || authIsLoading,
     error,
     game,
     players,

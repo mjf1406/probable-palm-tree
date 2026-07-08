@@ -69,6 +69,32 @@ export const ANSWER_OPTIONS: {
 
 export type GameType = "submarine" | "robot";
 export type GameStatus = "lobby" | "playing" | "won" | "lost";
+export type QuestionType = "mc" | "tf";
+export type ShuffleMode = "none" | "once" | "eachRepetition";
+
+export const DEFAULT_SHUFFLE_MODE: ShuffleMode = "eachRepetition";
+
+export const SHUFFLE_MODES: {
+    id: ShuffleMode;
+    label: string;
+    description: string;
+}[] = [
+    {
+        id: "none",
+        label: "No shuffling",
+        description: "Keep the authored order every time.",
+    },
+    {
+        id: "once",
+        label: "Shuffle once",
+        description: "Shuffle at launch, then keep that order for every rematch.",
+    },
+    {
+        id: "eachRepetition",
+        label: "Shuffle each repetition",
+        description: "Shuffle again every time you play this deck.",
+    },
+];
 
 export const GAME_TYPES: {
     id: GameType;
@@ -89,6 +115,17 @@ export const GAME_TYPES: {
         resource: "Battery",
     },
 ];
+
+export function parseShuffleMode(value: unknown): ShuffleMode {
+    if (value === "none" || value === "once" || value === "eachRepetition") {
+        return value;
+    }
+    return DEFAULT_SHUFFLE_MODE;
+}
+
+export function parseQuestionType(value: unknown): QuestionType {
+    return value === "tf" ? "tf" : "mc";
+}
 
 export function generateJoinCode(length = CODE_LENGTH): string {
     let code = "";
@@ -156,14 +193,132 @@ export function isQuestionExpired(
 
 export function parseQuestionsSnapshot(value: unknown): QuestionSnapshot[] {
     if (!Array.isArray(value)) return [];
-    return value.filter(
-        (item): item is QuestionSnapshot =>
-            typeof item === "object" &&
-            item !== null &&
-            typeof (item as QuestionSnapshot).text === "string" &&
-            Array.isArray((item as QuestionSnapshot).options) &&
-            typeof (item as QuestionSnapshot).correctIndex === "number",
+    return value
+        .filter(
+            (item): item is Record<string, unknown> =>
+                typeof item === "object" &&
+                item !== null &&
+                typeof (item as QuestionSnapshot).text === "string" &&
+                Array.isArray((item as QuestionSnapshot).options) &&
+                typeof (item as QuestionSnapshot).correctIndex === "number",
+        )
+        .map((item) => ({
+            text: item.text as string,
+            options: (item.options as unknown[]).filter(
+                (option): option is string => typeof option === "string",
+            ),
+            correctIndex: item.correctIndex as number,
+            questionType: parseQuestionType(item.questionType),
+        }));
+}
+
+function shuffleArray<T>(items: T[]): T[] {
+    const next = [...items];
+    for (let i = next.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = next[i];
+        next[i] = next[j]!;
+        next[j] = temp!;
+    }
+    return next;
+}
+
+export function shuffleQuestionOptions(
+    question: QuestionSnapshot,
+): QuestionSnapshot {
+    if (question.options.length <= 1) return question;
+
+    const indexed = question.options.map((option, index) => ({
+        option,
+        index,
+    }));
+    const shuffled = shuffleArray(indexed);
+    const correctIndex = shuffled.findIndex(
+        (item) => item.index === question.correctIndex,
     );
+
+    return {
+        ...question,
+        options: shuffled.map((item) => item.option),
+        correctIndex: correctIndex >= 0 ? correctIndex : 0,
+    };
+}
+
+export function buildQuestionsSnapshot(
+    questions: {
+        text: string;
+        options: unknown;
+        correctIndex: number;
+        order: number;
+        questionType?: unknown;
+    }[],
+    {
+        answerShuffleMode,
+        questionShuffleMode,
+    }: {
+        answerShuffleMode: ShuffleMode;
+        questionShuffleMode: ShuffleMode;
+    },
+    {
+        shuffleAnswers = answerShuffleMode !== "none",
+        shuffleQuestions = questionShuffleMode !== "none",
+    }: {
+        shuffleAnswers?: boolean;
+        shuffleQuestions?: boolean;
+    } = {},
+): QuestionSnapshot[] {
+    let snapshot = [...questions]
+        .sort((a, b) => a.order - b.order)
+        .map((question) => ({
+            text: question.text,
+            options: Array.isArray(question.options)
+                ? (question.options as string[])
+                : [],
+            correctIndex: question.correctIndex,
+            questionType: parseQuestionType(question.questionType),
+        }));
+
+    if (shuffleQuestions) {
+        snapshot = shuffleArray(snapshot);
+    }
+
+    if (shuffleAnswers) {
+        snapshot = snapshot.map((question) =>
+            question.questionType === "tf"
+                ? question
+                : shuffleQuestionOptions(question),
+        );
+    }
+
+    return snapshot;
+}
+
+/** Rematch: reshuffle only components whose mode is `eachRepetition`. */
+export function reshuffleForRepetition(
+    currentSnapshot: QuestionSnapshot[],
+    {
+        answerShuffleMode,
+        questionShuffleMode,
+    }: {
+        answerShuffleMode: ShuffleMode;
+        questionShuffleMode: ShuffleMode;
+    },
+): QuestionSnapshot[] {
+    let snapshot = [...currentSnapshot];
+
+    if (questionShuffleMode === "eachRepetition") {
+        snapshot = shuffleArray(snapshot);
+    }
+
+    if (answerShuffleMode === "eachRepetition") {
+        snapshot = snapshot.map((question) =>
+            question.questionType === "tf"
+                ? question
+                : shuffleQuestionOptions(question),
+        );
+    }
+
+    return snapshot;
 }
 
 export function formatCode(code: string): string {

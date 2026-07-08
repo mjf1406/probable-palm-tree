@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { id } from "@instantdb/react";
 import { ExternalLink, Plus, Rocket, Ship } from "lucide-react";
-import { GameSetupDialog, toSnapshot } from "@/components/host/GameSetupDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
-import { GAME_TYPES } from "@/lib/game";
+import { DEFAULT_SHUFFLE_MODE, GAME_TYPES } from "@/lib/game";
 import type { GameRecord } from "@/lib/types";
 
 const RECENT_GAME_MS = 24 * 60 * 60 * 1000;
@@ -62,15 +61,8 @@ function statusLabel(status: GameRecord["status"]) {
   }
 }
 
-function DeckCard({
-  deck,
-  onLaunch,
-}: {
-  deck: DeckWithQuestions;
-  onLaunch: (deck: DeckWithQuestions) => void;
-}) {
-  const snapshot = toSnapshot(deck.questions);
-  const canLaunch = snapshot.length > 0;
+function DeckCard({ deck }: { deck: DeckWithQuestions }) {
+  const canLaunch = deck.questions.length > 0;
 
   return (
     <Card>
@@ -97,19 +89,21 @@ function DeckCard({
             </Link>
           </Button>
         ) : null}
-        <Button
-          size="sm"
-          disabled={!canLaunch}
-          onClick={() => onLaunch(deck)}
-        >
-          Launch
+        <Button asChild size="sm" disabled={!canLaunch}>
+          <Link to="/l/$deckId" params={{ deckId: deck.id }}>
+            Launch
+          </Link>
         </Button>
       </CardFooter>
     </Card>
   );
 }
 
-function ActiveGameCard({ game }: { game: GameRecord & { players?: { id: string }[] } }) {
+function ActiveGameCard({
+  game,
+}: {
+  game: GameRecord & { players?: { id: string }[] };
+}) {
   const isActive = game.status === "lobby" || game.status === "playing";
   const playerCount = game.players?.length ?? 0;
 
@@ -151,8 +145,6 @@ function ActiveGameCard({ game }: { game: GameRecord & { players?: { id: string 
 export function HostDashboard() {
   const navigate = useNavigate();
   const { user } = db.useAuth();
-  const [launchDeckId, setLaunchDeckId] = useState<string | null>(null);
-  const [launchOpen, setLaunchOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
@@ -180,18 +172,6 @@ export function HostDashboard() {
   );
   const builtInDecks = allDecks.filter((deck) => deck.isBuiltIn);
 
-  const launchableDecks = useMemo(
-    () =>
-      [...myDecks, ...builtInDecks]
-        .map((deck) => ({
-          id: deck.id,
-          title: deck.title,
-          questions: toSnapshot(deck.questions),
-        }))
-        .filter((deck) => deck.questions.length > 0),
-    [myDecks, builtInDecks],
-  );
-
   const activeGames = useMemo(() => {
     const games = (data?.$users?.[0]?.hostedGames ?? []) as (GameRecord & {
       players?: { id: string }[];
@@ -217,6 +197,8 @@ export function HostDashboard() {
             description: "",
             isBuiltIn: false,
             createdAt: Date.now(),
+            answerShuffleMode: DEFAULT_SHUFFLE_MODE,
+            questionShuffleMode: DEFAULT_SHUFFLE_MODE,
           })
           .link({ owner: user.id }),
       );
@@ -227,17 +209,13 @@ export function HostDashboard() {
     }
   };
 
-  const openLaunch = (deck: DeckWithQuestions) => {
-    setLaunchDeckId(deck.id);
-    setLaunchOpen(true);
-  };
-
   return (
     <main className="mx-auto max-w-5xl space-y-8 px-6 py-10">
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">My decks</h1>
         <p className="text-muted-foreground">
-          Build quiz decks or pick a built-in set, then launch a cooperative game.
+          Build quiz decks or pick a built-in set, then launch a cooperative
+          game.
         </p>
       </div>
 
@@ -321,7 +299,7 @@ export function HostDashboard() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {myDecks.map((deck) => (
-                  <DeckCard key={deck.id} deck={deck} onLaunch={openLaunch} />
+                  <DeckCard key={deck.id} deck={deck} />
                 ))}
               </div>
             )}
@@ -334,24 +312,13 @@ export function HostDashboard() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {builtInDecks.map((deck) => (
-                  <DeckCard key={deck.id} deck={deck} onLaunch={openLaunch} />
+                  <DeckCard key={deck.id} deck={deck} />
                 ))}
               </div>
             )}
           </TabsContent>
         </Tabs>
       )}
-
-      <GameSetupDialog
-        open={launchOpen}
-        onOpenChange={(open) => {
-          setLaunchOpen(open);
-          if (!open) setLaunchDeckId(null);
-        }}
-        mode="launch"
-        decks={launchableDecks}
-        initialDeckId={launchDeckId}
-      />
     </main>
   );
 }

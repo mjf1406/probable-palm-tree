@@ -16,12 +16,20 @@ type CancelGameButtonProps = {
   onCancel: () => void;
   isCancelling?: boolean;
   className?: string;
+  label?: string;
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
 };
 
 export function CancelGameButton({
   onCancel,
   isCancelling = false,
   className,
+  label = "Cancel game",
+  title = "Cancel this game?",
+  description = "All players will be removed from the lobby and this join code will stop working. This cannot be undone.",
+  confirmLabel = "Cancel game",
 }: CancelGameButtonProps) {
   return (
     <AlertDialog>
@@ -35,16 +43,13 @@ export function CancelGameButton({
           )}
           disabled={isCancelling}
         >
-          {isCancelling ? "Cancelling..." : "Cancel game"}
+          {isCancelling ? "Ending..." : label}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Cancel this game?</AlertDialogTitle>
-          <AlertDialogDescription>
-            All players will be removed from the lobby and this join code will
-            stop working. This cannot be undone.
-          </AlertDialogDescription>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isCancelling}>
@@ -58,7 +63,7 @@ export function CancelGameButton({
               onCancel();
             }}
           >
-            {isCancelling ? "Cancelling..." : "Cancel game"}
+            {isCancelling ? "Ending..." : confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

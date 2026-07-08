@@ -8,7 +8,8 @@ import {
   GamePlayerPresence,
 } from "@/components/game/GamePresence";
 import { RobotGame, SubmarineGame } from "@/components/game/GameVisuals";
-import { GameSetupDialog, toSnapshot } from "@/components/host/GameSetupDialog";
+import { GameSetupDialog } from "@/components/host/GameSetupDialog";
+import { CancelGameButton } from "@/components/game/CancelGameButton";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -59,7 +60,7 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
   );
   const { leave, isLeaving, hasLeftRef } = useLeaveGame(upperCode);
   const { cancel, isCancelling } = useCancelGame();
-  const hadLobbyGameRef = useRef(false);
+  const hadGameRef = useRef(false);
 
   useAutoLeaveOnClose({
     code: upperCode,
@@ -69,30 +70,30 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
   });
 
   useEffect(() => {
-    if (game?.status === "lobby") {
-      hadLobbyGameRef.current = true;
+    if (game) {
+      hadGameRef.current = true;
     }
-  }, [game?.status]);
+  }, [game]);
 
   useEffect(() => {
-    if (isLoading || game || isHost || !currentPlayer) return;
-    if (!hadLobbyGameRef.current) return;
+    if (isLoading || game || isHost) return;
+    if (!hadGameRef.current && !playerId) return;
 
-    hadLobbyGameRef.current = false;
+    hadGameRef.current = false;
     clearStoredPlayerId(upperCode);
-    toast.error("The host cancelled this game.");
+    toast.error("The host ended this game.");
     void navigate({ to: "/join", search: joinSearchDefaults });
-  }, [currentPlayer, game, isHost, isLoading, navigate, upperCode]);
+  }, [game, isHost, isLoading, navigate, playerId, upperCode]);
 
   useEffect(() => {
     if (isLoading || !game) return;
     if (game.status === "playing") {
       void navigate({
-        to: "/g/$code/play",
+        to: isHost ? "/g/$code/play" : "/p/$code",
         params: { code: upperCode },
       });
     }
-  }, [game, isLoading, navigate, upperCode]);
+  }, [game, isHost, isLoading, navigate, upperCode]);
 
   useEffect(() => {
     if (isLoading || !game || !playerId || isHost) return;
@@ -143,6 +144,15 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
   }
 
   if (!game) {
+    // Non-host redirect is handled by the effect above while loading settles.
+    if (!isHost && playerId) {
+      return (
+        <main className="mx-auto max-w-4xl px-6 py-10">
+          <p className="text-muted-foreground">Returning to join...</p>
+        </main>
+      );
+    }
+
     return (
       <main className="mx-auto max-w-4xl px-6 py-10">
         <Card>
@@ -172,14 +182,18 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
     .map((deck) => ({
       id: deck.id as string,
       title: deck.title as string,
-      questions: toSnapshot(
-        (deck.questions ?? []) as {
-          text: string;
-          options: unknown;
-          correctIndex: number;
-          order: number;
-        }[],
-      ),
+      answerShuffleMode: deck.answerShuffleMode as string | null | undefined,
+      questionShuffleMode: deck.questionShuffleMode as
+        | string
+        | null
+        | undefined,
+      questions: (deck.questions ?? []) as {
+        text: string;
+        options: unknown;
+        correctIndex: number;
+        order: number;
+        questionType?: unknown;
+      }[],
     }))
     .filter((deck) => deck.questions.length > 0);
 
@@ -207,8 +221,21 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
               />
             ) : null}
             {isHost ? (
-              <>
+              <div className="flex flex-col items-center gap-3">
                 <Button onClick={() => setRematchOpen(true)}>Play again</Button>
+                <CancelGameButton
+                  label="End game"
+                  title="End this game?"
+                  description="This will remove all players and invalidate this join code. This cannot be undone."
+                  confirmLabel="End game"
+                  isCancelling={isCancelling}
+                  onCancel={() =>
+                    void cancel(
+                      game.id,
+                      players.map((player) => player.id),
+                    )
+                  }
+                />
                 <GameSetupDialog
                   open={rematchOpen}
                   onOpenChange={setRematchOpen}
@@ -220,7 +247,7 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
                   rematchGame={game}
                   answerIds={answers.map((answer) => answer.id)}
                 />
-              </>
+              </div>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Waiting for the host to start the next round...

@@ -5,10 +5,7 @@ import { toast } from "sonner";
 import { GameCodeDisplay } from "@/components/GameCodeDisplay";
 import { DisconnectKickWatcher } from "@/components/game/DisconnectKickWatcher";
 import { LeaveGameButton } from "@/components/game/LeaveGameButton";
-import {
-  GameHostPresence,
-  GamePlayerPresence,
-} from "@/components/game/GamePresence";
+import { GameHostPresence } from "@/components/game/GamePresence";
 import { PlayerAvatar } from "@/components/game/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,7 +41,6 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuestionTimer } from "@/hooks/useQuestionTimer";
-import { useAutoLeaveOnClose } from "@/hooks/useAutoLeaveOnClose";
 import { clearStoredPlayerId } from "@/lib/auth";
 import { STARTING_LIVES } from "@/lib/game";
 import { joinSearchDefaults } from "@/lib/routes";
@@ -151,14 +147,7 @@ export function PlayGameLayout({
     isHost,
     currentPlayer,
   } = useGameSession(code, playerId);
-  const { leave, isLeaving, hasLeftRef } = useLeaveGame(code);
-
-  useAutoLeaveOnClose({
-    code: upperCode,
-    playerId,
-    enabled: !isHost && Boolean(currentPlayer),
-    hasLeftRef,
-  });
+  const { leave, isLeaving } = useLeaveGame(code);
 
   const timeRemaining = useQuestionTimer(
     game?.questionStartedAt ?? undefined,
@@ -171,6 +160,16 @@ export function PlayGameLayout({
       setSquadOpen(true);
     }
   }, [isMobile]);
+
+  useEffect(() => {
+    if (isLoading || isHost) return;
+    if (game) return;
+    if (!playerId) return;
+
+    clearStoredPlayerId(upperCode);
+    toast.error("The host ended this game.");
+    void navigate({ to: "/join", search: joinSearchDefaults });
+  }, [game, isHost, isLoading, navigate, playerId, upperCode]);
 
   useEffect(() => {
     if (isLoading || !game || !playerId || isHost) return;
@@ -207,7 +206,11 @@ export function PlayGameLayout({
   if (isLoading || !game) {
     return (
       <main className="flex min-h-screen items-center justify-center p-6">
-        <p className="text-muted-foreground">Loading game...</p>
+        <p className="text-muted-foreground">
+          {!isLoading && !game && playerId && !isHost
+            ? "Returning to join..."
+            : "Loading game..."}
+        </p>
       </main>
     );
   }
@@ -233,13 +236,6 @@ export function PlayGameLayout({
             isHost={isHost}
           />
         </>
-      ) : null}
-      {currentPlayer ? (
-        <GamePlayerPresence
-          gameId={game.id}
-          playerId={currentPlayer.id}
-          nickname={currentPlayer.nickname}
-        />
       ) : null}
       <SidebarProvider>
         <Sidebar>

@@ -1,9 +1,15 @@
-import type { GameType, GameStatus } from "@/lib/game";
+import type {
+  GameType,
+  GameStatus,
+  QuestionType,
+  ShuffleMode,
+} from "@/lib/game";
 
 export type QuestionSnapshot = {
   text: string;
   options: string[];
   correctIndex: number;
+  questionType: QuestionType;
 };
 
 export type DeckQuestion = {
@@ -12,6 +18,12 @@ export type DeckQuestion = {
   options: string[];
   correctIndex: number;
   order: number;
+  questionType?: QuestionType | null;
+};
+
+export type DeckShuffleSettings = {
+  answerShuffleMode: ShuffleMode;
+  questionShuffleMode: ShuffleMode;
 };
 
 export type GameRecord = {

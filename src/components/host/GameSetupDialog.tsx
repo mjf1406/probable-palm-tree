@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { Rocket, Ship } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,23 +22,33 @@ import { db } from "@/lib/db";
 import {
   DEFAULT_QUESTION_TIME,
   GAME_TYPES,
-  generateJoinCode,
+  buildQuestionsSnapshot,
+  parseShuffleMode,
+  reshuffleForRepetition,
   type GameType,
+  type ShuffleMode,
 } from "@/lib/game";
-import type { GameRecord } from "@/lib/types";
-import type { QuestionSnapshot } from "@/lib/types";
-import { launchGame, resetGameForRematch } from "@/lib/useHostGameEngine";
+import type { GameRecord, QuestionSnapshot } from "@/lib/types";
+import { resetGameForRematch } from "@/lib/useHostGameEngine";
 
 type DeckOption = {
   id: string;
   title: string;
-  questions: QuestionSnapshot[];
+  questions: {
+    text: string;
+    options: unknown;
+    correctIndex: number;
+    order: number;
+    questionType?: unknown;
+  }[];
+  answerShuffleMode?: ShuffleMode | string | null;
+  questionShuffleMode?: ShuffleMode | string | null;
 };
 
 type GameSetupDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  mode: "launch" | "rematch";
+  mode: "rematch";
   decks: DeckOption[];
   initialDeckId?: string | null;
   initialGameType?: GameType;
@@ -48,24 +57,26 @@ type GameSetupDialogProps = {
   answerIds?: string[];
 };
 
-function toSnapshot(
-  questions: { text: string; options: unknown; correctIndex: number; order: number }[],
+function buildLaunchSnapshot(
+  questions: {
+    text: string;
+    options: unknown;
+    correctIndex: number;
+    order: number;
+    questionType?: unknown;
+  }[],
+  answerShuffleMode: ShuffleMode,
+  questionShuffleMode: ShuffleMode,
 ): QuestionSnapshot[] {
-  return [...questions]
-    .sort((a, b) => a.order - b.order)
-    .map((question) => ({
-      text: question.text,
-      options: Array.isArray(question.options)
-        ? (question.options as string[])
-        : [],
-      correctIndex: question.correctIndex,
-    }));
+  return buildQuestionsSnapshot(questions, {
+    answerShuffleMode,
+    questionShuffleMode,
+  });
 }
 
 export function GameSetupDialog({
   open,
   onOpenChange,
-  mode,
   decks,
   initialDeckId,
   initialGameType = "submarine",
@@ -73,7 +84,6 @@ export function GameSetupDialog({
   rematchGame,
   answerIds = [],
 }: GameSetupDialogProps) {
-  const navigate = useNavigate();
   const { user } = db.useAuth();
   const [deckId, setDeckId] = useState(initialDeckId ?? decks[0]?.id ?? "");
   const [gameType, setGameType] = useState<GameType>(initialGameType);
@@ -88,40 +98,44 @@ export function GameSetupDialog({
   }, [open, initialDeckId, decks, initialGameType, initialQuestionTime]);
 
   const selectedDeck = decks.find((deck) => deck.id === deckId);
-  const questions = selectedDeck?.questions ?? [];
+  const answerShuffleMode = parseShuffleMode(selectedDeck?.answerShuffleMode);
+  const questionShuffleMode = parseShuffleMode(
+    selectedDeck?.questionShuffleMode,
+  );
   const selectedGame = GAME_TYPES.find((type) => type.id === gameType);
+  const hasQuestions = (selectedDeck?.questions.length ?? 0) > 0;
 
   const handleSubmit = async () => {
-    if (!user || questions.length === 0) return;
+    if (!user || !rematchGame || !selectedDeck || !hasQuestions) return;
 
     setIsSubmitting(true);
     try {
-      if (mode === "launch") {
-        const code = generateJoinCode();
-        await launchGame({
-          hostId: user.id,
-          code,
-          gameType,
-          questionsSnapshot: questions,
-          questionTimeSeconds: Number(questionTime) || DEFAULT_QUESTION_TIME,
-          deckTitle: selectedDeck?.title,
-          deckId: selectedDeck?.id,
-        });
-        onOpenChange(false);
-        await navigate({ to: "/g/$code", params: { code } });
-        return;
-      }
+      const sameDeck = rematchGame.deckId === selectedDeck.id;
+      let questionsSnapshot: QuestionSnapshot[];
 
-      if (!rematchGame) return;
+      if (sameDeck) {
+        // Keep existing snapshot order for modes that are not eachRepetition.
+        questionsSnapshot = reshuffleForRepetition(
+          rematchGame.questionsSnapshot,
+          { answerShuffleMode, questionShuffleMode },
+        );
+      } else {
+        // New deck: shuffle now for once / eachRepetition.
+        questionsSnapshot = buildLaunchSnapshot(
+          selectedDeck.questions,
+          answerShuffleMode,
+          questionShuffleMode,
+        );
+      }
 
       await resetGameForRematch({
         gameId: rematchGame.id,
         answerIds,
         gameType,
-        questionsSnapshot: questions,
+        questionsSnapshot,
         questionTimeSeconds: Number(questionTime) || DEFAULT_QUESTION_TIME,
-        deckTitle: selectedDeck?.title,
-        deckId: selectedDeck?.id,
+        deckTitle: selectedDeck.title,
+        deckId: selectedDeck.id,
       });
       onOpenChange(false);
     } finally {
@@ -129,18 +143,14 @@ export function GameSetupDialog({
     }
   };
 
-  const title = mode === "launch" ? "Launch game" : "Play again";
-  const description =
-    mode === "launch"
-      ? "Choose a deck and settings to start a new game."
-      : "Pick a deck for the next round. Everyone stays in the lobby.";
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle>Play again</DialogTitle>
+          <DialogDescription>
+            Pick a deck for the next round. Everyone stays in the lobby.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -207,13 +217,9 @@ export function GameSetupDialog({
         <DialogFooter>
           <Button
             onClick={() => void handleSubmit()}
-            disabled={isSubmitting || questions.length === 0}
+            disabled={isSubmitting || !hasQuestions}
           >
-            {isSubmitting
-              ? "Saving..."
-              : mode === "launch"
-                ? "Launch game"
-                : "Reset to lobby"}
+            {isSubmitting ? "Saving..." : "Reset to lobby"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -221,4 +227,19 @@ export function GameSetupDialog({
   );
 }
 
-export { toSnapshot };
+/** Authored deck → snapshot without shuffling (for listing / rematch deck options). */
+export function toSnapshot(
+  questions: {
+    text: string;
+    options: unknown;
+    correctIndex: number;
+    order: number;
+    questionType?: unknown;
+  }[],
+): QuestionSnapshot[] {
+  return buildQuestionsSnapshot(
+    questions,
+    { answerShuffleMode: "none", questionShuffleMode: "none" },
+    { shuffleAnswers: false, shuffleQuestions: false },
+  );
+}

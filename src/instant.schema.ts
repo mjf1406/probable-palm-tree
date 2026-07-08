@@ -18,12 +18,17 @@ const _schema = i.schema({
       description: i.string().optional(),
       isBuiltIn: i.boolean().indexed(),
       createdAt: i.number().indexed(),
+      // "none" | "once" | "eachRepetition" — default handled in app as "eachRepetition"
+      answerShuffleMode: i.string().optional(),
+      questionShuffleMode: i.string().optional(),
     }),
     questions: i.entity({
       text: i.string(),
       options: i.json(),
       correctIndex: i.number(),
       order: i.number().indexed(),
+      // "mc" | "tf" — default handled in app as "mc"
+      questionType: i.string().optional(),
     }),
     games: i.entity({
       code: i.string().unique().indexed(),

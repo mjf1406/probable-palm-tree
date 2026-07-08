@@ -210,6 +210,8 @@ async function seed() {
       description: deck.description,
       isBuiltIn: true,
       createdAt: Date.now(),
+      answerShuffleMode: "eachRepetition",
+      questionShuffleMode: "eachRepetition",
     });
 
     const questionTxes = deck.questions.map((question, index) => {
@@ -220,6 +222,7 @@ async function seed() {
           options: question.options,
           correctIndex: question.correctIndex,
           order: index,
+          questionType: "mc",
         })
         .link({ deck: deckId });
     });

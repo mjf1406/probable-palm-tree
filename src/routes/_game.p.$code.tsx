@@ -1,15 +1,15 @@
 import { useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { PlayGameLayout } from "@/components/layouts/PlayGameLayout";
 import { GamePlayScreen } from "@/components/game/GamePlayScreen";
+import { PlayerPlayEffects } from "@/components/game/PlayerPlayEffects";
 import { getStoredPlayerId } from "@/lib/auth";
 import { useGameSession } from "@/lib/useGameSession";
 
-export const Route = createFileRoute("/_game/g/$code/play")({
-  component: PlayRoute,
+export const Route = createFileRoute("/_game/p/$code")({
+  component: PlayerPlayRoute,
 });
 
-function PlayRoute() {
+function PlayerPlayRoute() {
   const { code } = Route.useParams();
   const playerId = getStoredPlayerId(code);
   const navigate = useNavigate();
@@ -19,23 +19,23 @@ function PlayRoute() {
   );
 
   useEffect(() => {
-    if (isLoading || !game) return;
-    if (!isHost) {
-      void navigate({
-        to: "/p/$code",
-        params: { code: upperCode },
-      });
-      return;
-    }
-    if (game.status !== "playing") {
+    if (isLoading) return;
+    if (!game || !playerId || game.status !== "playing") {
       void navigate({
         to: "/g/$code",
         params: { code: upperCode },
       });
+      return;
     }
-  }, [game, isHost, isLoading, navigate, upperCode]);
+    if (isHost) {
+      void navigate({
+        to: "/g/$code/play",
+        params: { code: upperCode },
+      });
+    }
+  }, [game, isHost, isLoading, navigate, playerId, upperCode]);
 
-  if (isLoading || !game || game.status !== "playing" || !isHost) {
+  if (isLoading || !game || !playerId || game.status !== "playing" || isHost) {
     return (
       <main className="flex min-h-screen items-center justify-center p-6">
         <p className="text-muted-foreground">Loading game...</p>
@@ -44,8 +44,8 @@ function PlayRoute() {
   }
 
   return (
-    <PlayGameLayout code={code} playerId={playerId}>
+    <PlayerPlayEffects code={code} playerId={playerId}>
       <GamePlayScreen code={code} playerId={playerId} />
-    </PlayGameLayout>
+    </PlayerPlayEffects>
   );
 }

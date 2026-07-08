@@ -39,37 +39,29 @@ export function PlayerPlayScreen({
   const optionCount = options.length;
 
   return (
-    <div className="flex min-h-0 h-full flex-col gap-4 p-6">
-      <header className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-semibold leading-snug md:text-3xl">
-            {currentQuestion?.text ?? "Loading question..."}
-          </h1>
-        </div>
-
-        <div className="shrink-0 text-right">
-          <div className="font-mono text-4xl font-bold tabular-nums text-primary">
+    <div className="flex min-h-screen w-full flex-col items-center justify-center gap-6 p-6">
+      <div className="flex w-full max-w-4xl flex-col items-center gap-6">
+        <div className="flex w-full max-w-xs flex-col items-center">
+          <div className="font-mono text-5xl font-bold tabular-nums text-primary md:text-6xl">
             {Math.ceil(timeRemaining)}
           </div>
           <Progress
             value={(timeRemaining / game.questionTimeSeconds) * 100}
-            className="mt-2 h-1.5 w-56 max-w-[48vw]"
+            className="mt-3 h-1.5 w-full"
           />
         </div>
-      </header>
 
-      <div className="flex min-h-0 flex-1 flex-col">
-        <AnswerOptionGrid
-          optionCount={optionCount}
-          className="h-full auto-rows-fr"
-        >
+        <h1 className="w-full text-center text-3xl font-semibold leading-snug md:text-4xl">
+          {currentQuestion?.text ?? "Loading question..."}
+        </h1>
+
+        <AnswerOptionGrid optionCount={optionCount} className="w-full">
           {options.map((option, index) => (
             <AnswerOption
               key={index}
               index={index}
               text={option}
               variant="interactive"
-              fullHeight
               disabled={Boolean(myAnswer) || revealing}
               onClick={() => onAnswer(index)}
             />
@@ -77,7 +69,6 @@ export function PlayerPlayScreen({
         </AnswerOptionGrid>
 
         <AnswerStatusFooter
-          className="mt-4"
           message={
             myAnswer ? "Answer submitted — waiting for the squad..." : null
           }

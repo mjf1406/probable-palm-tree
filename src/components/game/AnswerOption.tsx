@@ -73,22 +73,22 @@ type AnswerOptionGridProps = {
   className?: string;
 };
 
+const GRID_COLS: Record<number, string> = {
+  1: "grid-cols-1",
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+};
+
 export function AnswerOptionGrid({
   children,
   optionCount,
   className,
 }: AnswerOptionGridProps) {
-  const maxCount = Math.max(0, optionCount ?? 0);
-  const columns = maxCount <= 4 ? 2 : 4;
+  const columns = Math.min(Math.max(optionCount, 1), 4);
 
   return (
-    <div
-      className={cn(
-        "grid gap-2",
-        columns === 4 ? "grid-cols-2 md:grid-cols-4" : "grid-cols-1 sm:grid-cols-2",
-        className,
-      )}
-    >
+    <div className={cn("grid gap-2", GRID_COLS[columns], className)}>
       {children}
     </div>
   );
