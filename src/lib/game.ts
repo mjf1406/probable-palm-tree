@@ -26,13 +26,25 @@ export const MIN_DURATION_MINUTES = 1;
 export const MAX_DURATION_MINUTES = 60;
 export const DURATION_STEP_MINUTES = 1;
 export const MAX_STREAK_MULTIPLIER = 10;
-export const METERS_PER_CORRECT = 1;
+export const DEFAULT_METERS_PER_CORRECT = 10;
+export const MIN_METERS_PER_CORRECT = 1;
+// Parsing clamp for meters-per-correct. UI additionally enforces a goal-based max.
+export const MAX_METERS_PER_CORRECT = 10000;
 export const MIN_QUESTION_TIME = 10;
 export const MAX_QUESTION_TIME = 60;
 export const QUESTION_TIME_STEP = 5;
 export const QUESTION_TIME_CTRL_STEP = 10;
 export const QUESTION_TIME_SHIFT_STEP = 15;
 export const QUESTION_TIME_CTRL_SHIFT_STEP = 30;
+
+/**
+ * Host input constraint for "meters per correct answer".
+ * - If the goal is below 10,000m, cap at 1,000m
+ * - Otherwise cap at 10,000m
+ */
+export function getMetersPerCorrectMax(goalMeters: number): number {
+    return goalMeters < 10000 ? 1000 : 10000;
+}
 
 export const ANSWER_OPTIONS: {
     color: string;
@@ -90,14 +102,20 @@ export const ANSWER_OPTIONS: {
     },
 ];
 
-export type GameType = "deepDivers" | "deepDrillers" | "highFlyers";
-export type GameDifficulty = "easy" | "medium" | "hard";
+export type GameType =
+    | "deepDivers"
+    | "deepDrillers"
+    | "highFlyers"
+    | "spaceTravelers"
+    | "seaSailors";
+export type GameDifficulty = "easy" | "medium" | "hard" | "veryHard";
 export type GameStatus = "lobby" | "playing" | "ended";
 
 export const GAME_DIFFICULTY_LABELS: Record<GameDifficulty, string> = {
     easy: "Easy",
     medium: "Medium",
     hard: "Hard",
+    veryHard: "Very Hard",
 };
 
 export type LevelDefinition = {
@@ -188,25 +206,49 @@ export const GAME_TYPES: {
     {
         id: "deepDrillers",
         name: "Deep Drillers",
-        description:
-            "Drill through Earth's layers toward the inner core.",
+        description: "Drill through Earth's layers toward the inner core.",
         distanceLabel: "Drill depth",
         vehicle: "drill",
-        difficulty: "medium",
+        difficulty: "hard",
     },
     {
         id: "highFlyers",
         name: "High Flyers",
-        description:
-            "Launch through atmosphere layers out of Earth's air.",
+        description: "Launch through atmosphere layers out of Earth's air.",
         distanceLabel: "Altitude",
         vehicle: "rocket",
+        difficulty: "medium",
+    },
+    {
+        id: "seaSailors",
+        name: "Sea Sailors",
+        description: "Sail from San Francisco to Honolulu on the same ocean.",
+        distanceLabel: "Distance sailed",
+        vehicle: "sailboat",
         difficulty: "hard",
+    },
+    {
+        id: "spaceTravelers",
+        name: "Space Travelers",
+        description:
+            "Launch from the Sun and try to escape the Solar System (to the heliopause).",
+        distanceLabel: "Distance from Sun",
+        vehicle: "spaceship",
+        difficulty: "veryHard",
     },
 ];
 
 export function getGameDifficulty(gameType: GameType): GameDifficulty {
-    return GAME_TYPES.find((type) => type.id === gameType)?.difficulty ?? "easy";
+    return (
+        GAME_TYPES.find((type) => type.id === gameType)?.difficulty ?? "easy"
+    );
+}
+
+export function getGameDifficultyBadges(gameType: GameType): GameDifficulty[] {
+    // Sea Sailors is vibe-coded as a two-tier difficulty.
+    // We show both `Medium` and `Hard` badges in the UI.
+    if (gameType === "seaSailors") return ["medium", "hard"];
+    return [getGameDifficulty(gameType)];
 }
 
 export function parseShuffleMode(value: unknown): ShuffleMode {
@@ -227,6 +269,18 @@ export function parseQuestionTimeSeconds(value: unknown): number {
     const n = typeof value === "number" ? value : Number(value);
     if (!Number.isFinite(n) || n < MIN_QUESTION_TIME || n > MAX_QUESTION_TIME)
         return DEFAULT_QUESTION_TIME;
+    return Math.round(n);
+}
+
+export function parseMetersPerCorrect(value: unknown): number {
+    const n = typeof value === "number" ? value : Number(value);
+    if (
+        !Number.isFinite(n) ||
+        n < MIN_METERS_PER_CORRECT ||
+        n > MAX_METERS_PER_CORRECT
+    ) {
+        return DEFAULT_METERS_PER_CORRECT;
+    }
     return Math.round(n);
 }
 
@@ -259,7 +313,9 @@ export function parseGameType(value: unknown): GameType {
     if (
         value === "deepDivers" ||
         value === "deepDrillers" ||
-        value === "highFlyers"
+        value === "highFlyers" ||
+        value === "spaceTravelers" ||
+        value === "seaSailors"
     ) {
         return value;
     }
@@ -303,12 +359,58 @@ export function getStreakMultiplier(streak: number): number {
     return Math.min(streak, MAX_STREAK_MULTIPLIER);
 }
 
-export function getDistanceGainForCorrect(streak: number): number {
-    return METERS_PER_CORRECT * getStreakMultiplier(streak);
+export function getDistanceGainForCorrect(
+    streak: number,
+    metersPerCorrect: number = DEFAULT_METERS_PER_CORRECT,
+): number {
+    return (
+        parseMetersPerCorrect(metersPerCorrect) * getStreakMultiplier(streak)
+    );
+}
+
+export function estimateCorrectAnswersToGoal(
+    gameType: GameType,
+    metersPerCorrect: unknown,
+): number {
+    const goalMeters = GAME_LEVELS[gameType].goalMeters;
+    const meters = parseMetersPerCorrect(metersPerCorrect);
+    return Math.ceil(goalMeters / meters);
+}
+
+// Distance estimate table rows: show even player counts up to 30.
+export const ESTIMATE_PLAYER_COUNTS = [
+    2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
+] as const;
+export const ESTIMATE_STREAK_LEVELS = [1, 2, 3, 5, 10] as const;
+
+/**
+ * Per-player correct answers needed to reach the goal, assuming:
+ * - each player maintains the provided sustained streak
+ * - the squad gains equally from each player's correct answers
+ */
+export function estimateCorrectAnswersPerPlayer(
+    gameType: GameType,
+    metersPerCorrect: unknown,
+    playerCount: number,
+    streak: number,
+): number {
+    const goalMeters = GAME_LEVELS[gameType].goalMeters;
+    const meters = parseMetersPerCorrect(metersPerCorrect);
+    const gainPerCorrectPerPlayer = meters * getStreakMultiplier(streak);
+
+    if (!Number.isFinite(playerCount) || playerCount <= 0) return 0;
+
+    const squadGainPerCorrectRound = playerCount * gainPerCorrectPerPlayer;
+
+    if (squadGainPerCorrectRound <= 0) return 0;
+    return Math.ceil(goalMeters / squadGainPerCorrectRound);
 }
 
 export function computeTotalDistance(answers: AnswerRecord[]): number {
-    return answers.reduce((sum, answer) => sum + (answer.distanceGained ?? 0), 0);
+    return answers.reduce(
+        (sum, answer) => sum + (answer.distanceGained ?? 0),
+        0,
+    );
 }
 
 export function computePlayerDistance(
@@ -339,10 +441,16 @@ export function getLevelForDistance(
 export function getLevelProgress(
     gameType: GameType,
     meters: number,
-): { level: LevelDefinition; progressPercent: number; nextLevel: LevelDefinition | null } {
+): {
+    level: LevelDefinition;
+    progressPercent: number;
+    nextLevel: LevelDefinition | null;
+} {
     const config = GAME_LEVELS[gameType];
     const level = getLevelForDistance(gameType, meters);
-    const levelIndex = config.levels.findIndex((item) => item.level === level.level);
+    const levelIndex = config.levels.findIndex(
+        (item) => item.level === level.level,
+    );
     const nextLevel = config.levels[levelIndex + 1] ?? null;
     const spanStart = level.startingDistanceMeters;
     const spanEnd = nextLevel?.startingDistanceMeters ?? config.goalMeters;
@@ -364,6 +472,30 @@ export function getGameTimeRemaining(
     return Math.max(0, durationSeconds - elapsed);
 }
 
+export function formatHMSMilliseconds(durationSeconds: number): string {
+    if (!Number.isFinite(durationSeconds)) return "00:00:00";
+
+    // Preserve the existing countdown semantics (previous UI used `Math.ceil`):
+    // the displayed second only changes once the remaining time crosses an integer boundary.
+    const clampedSeconds = Math.max(0, durationSeconds);
+    const totalSeconds = Math.ceil(clampedSeconds);
+
+    const seconds = totalSeconds % 60;
+    const totalMinutes = Math.floor(totalSeconds / 60);
+    const minutes = totalMinutes % 60;
+    const hours = Math.floor(totalMinutes / 60);
+
+    const pad2 = (value: number) => String(value).padStart(2, "0");
+
+    // If there are no hours, use a shorter display.
+    if (hours <= 0) {
+        return `${pad2(minutes)}:${pad2(seconds)}`;
+    }
+
+    const hourStr = hours < 100 ? pad2(hours) : String(hours);
+    return `${hourStr}:${pad2(minutes)}:${pad2(seconds)}`;
+}
+
 export function isGameExpired(
     startedAt: number | undefined | null,
     durationSeconds: number,
@@ -373,13 +505,50 @@ export function isGameExpired(
 }
 
 export function formatDistance(meters: number): string {
-    if (meters >= 1_000_000) {
-        return `${(meters / 1_000_000).toFixed(2)} km`;
+    if (meters < 1_000) {
+        return `${Math.round(meters)} m`;
     }
-    if (meters >= 1_000) {
-        return `${(meters / 1_000).toFixed(1)} km`;
+    const km = meters / 1_000;
+    if (km >= 1_000_000_000) {
+        const billion = km / 1_000_000_000;
+        return `${billion.toFixed(1).replace(/\.0$/, "")} billion km`;
     }
-    return `${Math.round(meters)} m`;
+    if (km >= 1_000_000) {
+        const million = km / 1_000_000;
+        const trimmed = million
+            .toFixed(2)
+            .replace(/0+$/, "")
+            .replace(/\.$/, "");
+        return `${trimmed} million km`;
+    }
+    if (km >= 100) return `${Math.round(km).toLocaleString()} km`;
+    return `${km.toFixed(1)} km`;
+}
+
+/** Exact km for game goals — no rounding. */
+export function formatGoalDistance(meters: number): string {
+    const wholeKm = Math.floor(meters / 1_000);
+    const remainderMeters = meters % 1_000;
+    if (remainderMeters === 0) {
+        if (wholeKm >= 1_000_000_000) {
+            const billion = wholeKm / 1_000_000_000;
+            return `${billion.toFixed(1).replace(/\.0$/, "")} billion km`;
+        }
+        if (wholeKm >= 1_000_000) {
+            const million = wholeKm / 1_000_000;
+            const trimmed = million
+                .toFixed(2)
+                .replace(/0+$/, "")
+                .replace(/\.$/, "");
+            return `${trimmed} million km`;
+        }
+        return `${wholeKm.toLocaleString()} km`;
+    }
+    const decimal = remainderMeters
+        .toString()
+        .padStart(3, "0")
+        .replace(/0+$/, "");
+    return `${wholeKm.toLocaleString()}.${decimal} km`;
 }
 
 export function getTimeRemaining(
@@ -489,7 +658,9 @@ type RawDeckQuestion = {
     questionType?: unknown;
 };
 
-function toAuthoritativeSnapshot(questions: RawDeckQuestion[]): QuestionSnapshot[] {
+function toAuthoritativeSnapshot(
+    questions: RawDeckQuestion[],
+): QuestionSnapshot[] {
     return [...questions]
         .sort((a, b) => a.order - b.order)
         .map((question) => ({
@@ -598,10 +769,7 @@ export function needsPerPlayerSnapshot(settings: DeckShuffleConfig): boolean {
 }
 
 export function getDeckShuffleConfig(
-    raw:
-        | Partial<Record<keyof DeckShuffleConfig, unknown>>
-        | null
-        | undefined,
+    raw: Partial<Record<keyof DeckShuffleConfig, unknown>> | null | undefined,
 ): DeckShuffleConfig {
     return {
         answerShuffleMode: parseShuffleMode(raw?.answerShuffleMode),
@@ -657,12 +825,22 @@ export function buildLoopSnapshot(
         settings.questionShuffleMode === "eachRepetition" &&
         settings.questionShuffleScope === "everyone"
     ) {
-        snapshot = reshuffleForRepetition(snapshot, settings, "everyone", questionSeed);
+        snapshot = reshuffleForRepetition(
+            snapshot,
+            settings,
+            "everyone",
+            questionSeed,
+        );
     } else if (
         settings.questionShuffleMode === "eachRepetition" &&
         settings.questionShuffleScope === "perPlayer"
     ) {
-        snapshot = reshuffleForRepetition(snapshot, settings, "perPlayer", questionSeed);
+        snapshot = reshuffleForRepetition(
+            snapshot,
+            settings,
+            "perPlayer",
+            questionSeed,
+        );
     }
 
     if (
@@ -670,13 +848,23 @@ export function buildLoopSnapshot(
         settings.answerShuffleScope === "everyone" &&
         settings.questionShuffleMode !== "eachRepetition"
     ) {
-        snapshot = reshuffleForRepetition(snapshot, settings, "everyone", answerSeed);
+        snapshot = reshuffleForRepetition(
+            snapshot,
+            settings,
+            "everyone",
+            answerSeed,
+        );
     } else if (
         settings.answerShuffleMode === "eachRepetition" &&
         settings.answerShuffleScope === "perPlayer" &&
         settings.questionShuffleMode !== "eachRepetition"
     ) {
-        snapshot = reshuffleForRepetition(snapshot, settings, "perPlayer", answerSeed);
+        snapshot = reshuffleForRepetition(
+            snapshot,
+            settings,
+            "perPlayer",
+            answerSeed,
+        );
     }
 
     if (

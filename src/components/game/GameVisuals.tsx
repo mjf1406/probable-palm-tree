@@ -1,8 +1,10 @@
-import { Drill, Plane, Ship, Trophy } from "lucide-react";
+import { Drill, Plane, Rocket, Sailboat, Ship, Trophy, type LucideIcon } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
   GAME_LEVELS,
   formatDistance,
+  formatGoalDistance,
+  formatHMSMilliseconds,
   getLevelForDistance,
   getLevelProgress,
   type GameType,
@@ -16,14 +18,17 @@ type DistanceGameVisualProps = {
   durationSeconds: number;
   bestDistanceMeters?: number | null;
   distanceLabel?: string;
+  seaRouteDistanceMeters?: number | null;
   className?: string;
 };
 
-const VEHICLE_ICONS = {
-  submarine: Ship,
-  drill: Drill,
-  rocket: Plane,
-} as const;
+const VEHICLE_ICONS: Record<GameType, LucideIcon> = {
+  deepDivers: Ship,
+  deepDrillers: Drill,
+  highFlyers: Plane,
+  spaceTravelers: Rocket,
+  seaSailors: Sailboat,
+};
 
 const LEVEL_COLORS = [
   "from-sky-400/80 to-sky-600/80",
@@ -31,16 +36,9 @@ const LEVEL_COLORS = [
   "from-indigo-600/80 to-indigo-800/80",
   "from-violet-700/80 to-violet-900/80",
   "from-fuchsia-800/80 to-fuchsia-950/80",
+  "from-emerald-500/80 to-emerald-950/80",
+  "from-rose-500/80 to-rose-950/80",
 ];
-
-function getVehicleIcon(gameType: GameType) {
-  const vehicle = gameType === "deepDivers"
-    ? "submarine"
-    : gameType === "deepDrillers"
-      ? "drill"
-      : "rocket";
-  return VEHICLE_ICONS[vehicle];
-}
 
 export function DistanceGameVisual({
   gameType,
@@ -49,71 +47,110 @@ export function DistanceGameVisual({
   durationSeconds,
   bestDistanceMeters,
   distanceLabel,
+  seaRouteDistanceMeters,
   className,
 }: DistanceGameVisualProps) {
   const config = GAME_LEVELS[gameType];
   const { level, progressPercent } = getLevelProgress(gameType, distanceMeters);
-  const VehicleIcon = getVehicleIcon(gameType);
+  const VehicleIcon = VEHICLE_ICONS[gameType];
+  const showLevelBands = config.levels.length > 1;
+
+  const goalDistanceMeters =
+    gameType === "seaSailors" && seaRouteDistanceMeters
+      ? seaRouteDistanceMeters
+      : config.goalMeters;
+
   const goalPercent = Math.min(
     100,
-    (distanceMeters / config.goalMeters) * 100,
+    (distanceMeters / goalDistanceMeters) * 100,
   );
   const bestPercent =
     bestDistanceMeters && bestDistanceMeters > 0
-      ? Math.min(100, (bestDistanceMeters / config.goalMeters) * 100)
+      ? Math.min(100, (bestDistanceMeters / goalDistanceMeters) * 100)
       : null;
 
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border bg-gradient-to-b from-slate-900 via-slate-950 to-black p-6 text-white",
+        "relative overflow-hidden rounded-2xl border bg-linear-to-b from-slate-900 via-slate-950 to-black p-6 text-white",
         className,
       )}
     >
       <div className="relative z-10 space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-white/60">
-              {distanceLabel ?? "Distance"}
-            </p>
-            <p className="font-mono text-3xl font-bold tabular-nums">
-              {formatDistance(distanceMeters)}
-            </p>
-            <p className="mt-1 text-sm text-white/70">
-              Level {level.level}: {level.name}
-            </p>
+            {gameType === "seaSailors" ? (
+              <>
+                <p className="text-xs font-medium uppercase tracking-wider text-white/60">
+                  Sea progress
+                </p>
+                <p className="font-mono text-3xl font-bold tabular-nums">
+                  {Math.round(goalPercent)}%
+                </p>
+                <p className="mt-1 text-sm text-white/70">
+                  {formatDistance(distanceMeters)} sailed
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-medium uppercase tracking-wider text-white/60">
+                  {distanceLabel ?? "Distance"}
+                </p>
+                <p className="font-mono text-3xl font-bold tabular-nums">
+                  {formatDistance(distanceMeters)}
+                </p>
+              </>
+            )}
+            {showLevelBands ? (
+              <p className="mt-1 text-sm text-white/70">
+                Level {level.level}: {level.name}
+              </p>
+            ) : null}
           </div>
           <div className="text-right">
             <p className="text-xs font-medium uppercase tracking-wider text-white/60">
               Time left
             </p>
             <p className="font-mono text-3xl font-bold tabular-nums text-sky-300">
-              {Math.ceil(timeRemainingSeconds)}s
+              {formatHMSMilliseconds(timeRemainingSeconds)}
             </p>
           </div>
         </div>
 
         <div className="relative h-56 overflow-hidden rounded-xl border border-white/10 bg-black/30">
-          <div className="absolute inset-0 flex flex-col">
-            {[...config.levels].reverse().map((levelItem, index) => {
-              const reverseIndex = config.levels.length - 1 - index;
-              const isCurrent = levelItem.level === level.level;
-              return (
-                <div
-                  key={levelItem.level}
-                  className={cn(
-                    "relative flex flex-1 items-center border-b border-white/10 bg-gradient-to-r px-3 text-xs",
-                    LEVEL_COLORS[reverseIndex] ?? LEVEL_COLORS[0],
-                    isCurrent && "ring-1 ring-inset ring-white/40",
-                  )}
-                >
-                  <span className="truncate font-medium">
-                    L{levelItem.level} · {levelItem.name}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          {showLevelBands ? (
+            <div className="absolute inset-0 flex flex-col">
+              {[...config.levels].reverse().map((levelItem, index) => {
+                const reverseIndex = config.levels.length - 1 - index;
+                const isCurrent = levelItem.level === level.level;
+                return (
+                  <div
+                    key={levelItem.level}
+                    className={cn(
+                      "relative flex flex-1 items-center border-b border-white/10 bg-linear-to-r px-3 text-xs",
+                      LEVEL_COLORS[reverseIndex % LEVEL_COLORS.length],
+                      isCurrent && "ring-1 ring-inset ring-white/40",
+                    )}
+                  >
+                    <span className="truncate font-medium">
+                      L{levelItem.level} · {levelItem.name}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <div className="text-center">
+                <p className="text-xs font-medium uppercase tracking-wider text-white/60">
+                  Route
+                </p>
+                <p className="mt-1 text-sm font-semibold text-white/90">
+                  {config.levels[0]?.name ?? ""}
+                </p>
+              </div>
+            </div>
+          )}
 
           <div
             className="pointer-events-none absolute inset-x-0 top-0 border-b-2 border-yellow-300 transition-all duration-700 ease-out"
@@ -137,17 +174,19 @@ export function DistanceGameVisual({
           ) : null}
 
           <div className="absolute bottom-3 left-3 rounded-md bg-black/50 px-2 py-1 text-xs text-white/80">
-            Goal: {formatDistance(config.goalMeters)}
+            Goal: {formatGoalDistance(config.goalMeters)}
           </div>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-white/70">
-            <span>Level progress</span>
-            <span>{Math.round(progressPercent)}%</span>
+        {showLevelBands ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-white/70">
+              <span>Level progress</span>
+              <span>{Math.round(progressPercent)}%</span>
+            </div>
+            <Progress value={progressPercent} className="h-2 bg-white/10" />
           </div>
-          <Progress value={progressPercent} className="h-2 bg-white/10" />
-        </div>
+        ) : null}
 
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-white/70">

@@ -49,12 +49,26 @@ async function upsertHighScore({
   deckId,
   gameType,
   distanceMeters,
+  seaRouteKey,
+  seaRouteDistanceMeters,
 }: {
   deckId: string | null | undefined;
   gameType: string;
   distanceMeters: number;
+  seaRouteKey?: string | null;
+  seaRouteDistanceMeters?: number | null;
 }) {
   if (!deckId || distanceMeters <= 0) return;
+
+  const compareAsPercent =
+    gameType === "seaSailors" &&
+    seaRouteDistanceMeters !== undefined &&
+    seaRouteDistanceMeters !== null &&
+    seaRouteDistanceMeters > 0;
+
+  const compareDistance = compareAsPercent
+    ? distanceMeters / seaRouteDistanceMeters
+    : distanceMeters;
 
   const { data } = await db.queryOnce({
     highScores: {
@@ -62,13 +76,21 @@ async function upsertHighScore({
         where: {
           "deck.id": deckId,
           gameType,
+          ...(gameType === "seaSailors" && seaRouteKey
+            ? { seaRouteKey }
+            : {}),
         },
       },
     },
   });
 
-  const existing = data.highScores[0];
-  if (existing && existing.distanceMeters >= distanceMeters) return;
+  const existing = data.highScores?.[0];
+  if (existing) {
+    const existingCompare = compareAsPercent
+      ? existing.distanceMeters / seaRouteDistanceMeters
+      : existing.distanceMeters;
+    if (existingCompare >= compareDistance) return;
+  }
 
   const achievedAt = Date.now();
   if (existing) {
@@ -76,6 +98,7 @@ async function upsertHighScore({
       db.tx.highScores[existing.id].update({
         distanceMeters,
         achievedAt,
+        ...(gameType === "seaSailors" && seaRouteKey ? { seaRouteKey } : {}),
       }),
     );
     return;
@@ -88,6 +111,7 @@ async function upsertHighScore({
         gameType,
         distanceMeters,
         achievedAt,
+        ...(gameType === "seaSailors" && seaRouteKey ? { seaRouteKey } : {}),
       })
       .link({ deck: deckId }),
   );
@@ -109,6 +133,8 @@ export async function endGame(
     deckId: game.deckId,
     gameType: game.gameType,
     distanceMeters: totalDistance,
+    seaRouteKey: game.seaRouteKey,
+    seaRouteDistanceMeters: game.seaRouteDistanceMeters,
   });
 }
 
@@ -128,12 +154,18 @@ export async function launchGame({
   questionsSnapshot,
   questionTimeSeconds,
   durationSeconds,
+  metersPerCorrect,
   deckTitle,
   deckId,
   answerShuffleMode,
   questionShuffleMode,
   answerShuffleScope,
   questionShuffleScope,
+  seaOcean,
+  seaFromCity,
+  seaToCity,
+  seaRouteDistanceMeters,
+  seaRouteKey,
 }: {
   hostId: string;
   code: string;
@@ -141,12 +173,18 @@ export async function launchGame({
   questionsSnapshot: unknown;
   questionTimeSeconds: number;
   durationSeconds: number;
+  metersPerCorrect: number;
   deckTitle?: string;
   deckId?: string;
   answerShuffleMode: string;
   questionShuffleMode: string;
   answerShuffleScope: string;
   questionShuffleScope: string;
+  seaOcean?: string;
+  seaFromCity?: string;
+  seaToCity?: string;
+  seaRouteDistanceMeters?: number;
+  seaRouteKey?: string;
 }) {
   const gameId = id();
   await db.transact(
@@ -157,6 +195,7 @@ export async function launchGame({
         status: "lobby",
         durationSeconds,
         questionTimeSeconds,
+        metersPerCorrect,
         questionsSnapshot,
         answerShuffleMode,
         questionShuffleMode,
@@ -165,6 +204,15 @@ export async function launchGame({
         createdAt: Date.now(),
         deckTitle,
         deckId,
+        ...(gameType === "seaSailors"
+          ? {
+              seaOcean,
+              seaFromCity,
+              seaToCity,
+              seaRouteDistanceMeters,
+              seaRouteKey,
+            }
+          : {}),
       })
       .link({ host: hostId }),
   );
@@ -263,6 +311,7 @@ export async function resetGameForRematch({
   questionsSnapshot,
   questionTimeSeconds,
   durationSeconds,
+  metersPerCorrect,
   deckTitle,
   deckId,
   answerShuffleMode,
@@ -270,6 +319,11 @@ export async function resetGameForRematch({
   answerShuffleScope,
   questionShuffleScope,
   playerSnapshotUpdates,
+  seaOcean,
+  seaFromCity,
+  seaToCity,
+  seaRouteDistanceMeters,
+  seaRouteKey,
 }: {
   gameId: string;
   answerIds: string[];
@@ -277,6 +331,7 @@ export async function resetGameForRematch({
   questionsSnapshot?: unknown;
   questionTimeSeconds?: number;
   durationSeconds?: number;
+  metersPerCorrect?: number;
   deckTitle?: string;
   deckId?: string;
   answerShuffleMode?: string;
@@ -287,6 +342,11 @@ export async function resetGameForRematch({
     playerId: string;
     questionsSnapshot: QuestionSnapshot[] | null;
   }[];
+  seaOcean?: string;
+  seaFromCity?: string;
+  seaToCity?: string;
+  seaRouteDistanceMeters?: number;
+  seaRouteKey?: string;
 }) {
   const gameUpdates: Record<string, unknown> = {
     status: "lobby",
@@ -304,6 +364,9 @@ export async function resetGameForRematch({
   if (durationSeconds !== undefined) {
     gameUpdates.durationSeconds = durationSeconds;
   }
+  if (metersPerCorrect !== undefined) {
+    gameUpdates.metersPerCorrect = metersPerCorrect;
+  }
   if (deckTitle !== undefined) gameUpdates.deckTitle = deckTitle;
   if (deckId !== undefined) gameUpdates.deckId = deckId;
   if (answerShuffleMode !== undefined) {
@@ -317,6 +380,14 @@ export async function resetGameForRematch({
   }
   if (questionShuffleScope !== undefined) {
     gameUpdates.questionShuffleScope = questionShuffleScope;
+  }
+
+  if (gameType === "seaSailors") {
+    gameUpdates.seaOcean = seaOcean;
+    gameUpdates.seaFromCity = seaFromCity;
+    gameUpdates.seaToCity = seaToCity;
+    gameUpdates.seaRouteDistanceMeters = seaRouteDistanceMeters;
+    gameUpdates.seaRouteKey = seaRouteKey;
   }
 
   const playerTxes =

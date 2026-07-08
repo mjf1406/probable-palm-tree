@@ -103,7 +103,7 @@ export function NumberInput({
                 min={min}
                 max={max}
                 disabled={disabled}
-                className={cn("text-center w-14 min-w-[56px]", inputClassName)}
+                className={cn("text-center w-24 min-w-[96px]", inputClassName)}
                 {...props}
             />
             <Button

@@ -41,7 +41,7 @@ import {
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { clearStoredPlayerId } from "@/lib/auth";
-import { formatDistance } from "@/lib/game";
+import { formatDistance, formatHMSMilliseconds } from "@/lib/game";
 import { joinSearchDefaults } from "@/lib/routes";
 import { useCancelGame } from "@/lib/useCancelGame";
 import { useGameSession } from "@/lib/useGameSession";
@@ -81,7 +81,7 @@ function SquadPanel({
           Time left
         </p>
         <p className="font-mono text-3xl font-bold tabular-nums text-primary">
-          {Math.ceil(gameTimeRemaining)}
+          {formatHMSMilliseconds(gameTimeRemaining)}
         </p>
         <Progress
           value={(gameTimeRemaining / durationSeconds) * 100}
@@ -267,7 +267,7 @@ export function PlayGameLayout({
               <div>
                 <p className="text-xs text-muted-foreground">Time remaining</p>
                 <p className="font-mono text-lg font-semibold tabular-nums">
-                  {Math.ceil(gameTimeRemaining)}s
+                  {formatHMSMilliseconds(gameTimeRemaining)}
                 </p>
                 <Progress
                   value={(gameTimeRemaining / game.durationSeconds) * 100}

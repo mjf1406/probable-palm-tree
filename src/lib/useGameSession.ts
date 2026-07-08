@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { isGoogleUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
@@ -9,6 +10,7 @@ import {
   getTimeRemaining,
   parseDurationSeconds,
   parseGameType,
+  parseMetersPerCorrect,
   parseQuestionsSnapshot,
   parseSettingScope,
   parseShuffleMode,
@@ -31,7 +33,13 @@ export function normalizeGame(
     durationSeconds: parseDurationSeconds(raw.durationSeconds),
     startedAt: raw.startedAt as number | undefined,
     questionTimeSeconds: raw.questionTimeSeconds as number,
+    metersPerCorrect: parseMetersPerCorrect(raw.metersPerCorrect),
     questionsSnapshot: parseQuestionsSnapshot(raw.questionsSnapshot),
+    seaOcean: raw.seaOcean as string | undefined,
+    seaFromCity: raw.seaFromCity as string | undefined,
+    seaToCity: raw.seaToCity as string | undefined,
+    seaRouteDistanceMeters: raw.seaRouteDistanceMeters as number | undefined,
+    seaRouteKey: raw.seaRouteKey as string | undefined,
     answerShuffleMode: parseShuffleMode(raw.answerShuffleMode),
     questionShuffleMode: parseShuffleMode(raw.questionShuffleMode),
     answerShuffleScope: parseSettingScope(raw.answerShuffleScope),
@@ -79,6 +87,8 @@ export function useGameSession(code: string, playerId: string | null) {
   const { user, isLoading: authIsLoading } = db.useAuth();
   const upperCode = code.toUpperCase();
 
+  const [tickNow, setTickNow] = useState(() => Date.now());
+
   const { isLoading, data, error } = db.useQuery({
     games: {
       $: { where: { code: upperCode } },
@@ -89,6 +99,21 @@ export function useGameSession(code: string, playerId: string | null) {
   });
 
   const game = normalizeGame(data?.games?.[0] as Record<string, unknown>);
+  const gameId = game?.id;
+  const gameStatus = game?.status;
+  const gameStartedAt = game?.startedAt;
+  useEffect(() => {
+    // Drive the timer UI while the game is actively playing.
+    // InstantDB doesn't update "every tick", so we need a local clock.
+    if (gameId == null || gameStatus !== "playing" || gameStartedAt == null) return;
+
+    const interval = window.setInterval(() => {
+      setTickNow(Date.now());
+    }, 250);
+
+    return () => window.clearInterval(interval);
+  }, [gameId, gameStatus, gameStartedAt]);
+
   const players = (game
     ? (data?.games?.[0]?.players ?? []).map((player) =>
         normalizePlayer(player as Record<string, unknown>),
@@ -143,7 +168,7 @@ export function useGameSession(code: string, playerId: string | null) {
         )
       : 0;
   const gameTimeRemaining = game
-    ? getGameTimeRemaining(game.startedAt, game.durationSeconds)
+    ? getGameTimeRemaining(game.startedAt, game.durationSeconds, tickNow)
     : 0;
 
   const playerProgress = players.map((player) => {

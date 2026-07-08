@@ -6,6 +6,7 @@ import {
   getDeckShuffleConfig,
   getDistanceGainForCorrect,
   isQuestionExpired,
+  parseMetersPerCorrect,
   parseQuestionsSnapshot,
 } from "@/lib/game";
 import type {
@@ -72,7 +73,10 @@ async function advancePlayerAfterAnswer({
   );
   const nextStreak = isCorrect ? player.streak + 1 : 0;
   const distanceGained = isCorrect
-    ? getDistanceGainForCorrect(nextStreak)
+    ? getDistanceGainForCorrect(
+        nextStreak,
+        parseMetersPerCorrect(game.metersPerCorrect),
+      )
     : 0;
   const answerId = id();
   const now = Date.now();

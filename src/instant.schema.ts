@@ -42,6 +42,14 @@ const _schema = i.schema({
       durationSeconds: i.number().optional(),
       startedAt: i.number().optional(),
       questionTimeSeconds: i.number(),
+      // default handled in app as DEFAULT_METERS_PER_CORRECT (10)
+      metersPerCorrect: i.number().optional(),
+      // Sea Sailors route selection (computed great-circle distance goal for % progress)
+      seaOcean: i.string().indexed().optional(),
+      seaFromCity: i.string().indexed().optional(),
+      seaToCity: i.string().indexed().optional(),
+      seaRouteDistanceMeters: i.number().optional(),
+      seaRouteKey: i.string().indexed().optional(),
       questionsSnapshot: i.json(),
       answerShuffleMode: i.string().optional(),
       questionShuffleMode: i.string().optional(),
@@ -72,6 +80,8 @@ const _schema = i.schema({
     }),
     highScores: i.entity({
       gameType: i.string().indexed(),
+      // Route identity for Sea Sailors (so highscores don’t collide across routes)
+      seaRouteKey: i.string().indexed().optional(),
       distanceMeters: i.number(),
       achievedAt: i.number().indexed(),
     }),

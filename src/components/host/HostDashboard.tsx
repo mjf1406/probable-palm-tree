@@ -2,17 +2,13 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { id } from "@instantdb/react";
 import {
-  Drill,
   ExternalLink,
   MoreHorizontal,
   Pencil,
-  Plane,
   Plus,
-  Ship,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DifficultyBadge } from "@/components/game/DifficultyBadge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,7 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
-import { DEFAULT_QUESTION_TIME, DEFAULT_SHUFFLE_MODE, DEFAULT_SETTING_SCOPE, GAME_TYPES } from "@/lib/game";
+import { DEFAULT_QUESTION_TIME, DEFAULT_SHUFFLE_MODE, DEFAULT_SETTING_SCOPE } from "@/lib/game";
 import type { GameRecord } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -87,12 +83,6 @@ function statusLabel(status: GameRecord["status"]) {
       return status;
   }
 }
-
-const GAME_ICONS = {
-  deepDivers: Ship,
-  deepDrillers: Drill,
-  highFlyers: Plane,
-} as const;
 
 function DeckCard({ deck }: { deck: DeckWithQuestions }) {
   const navigate = useNavigate();
@@ -351,8 +341,7 @@ export function HostDashboard() {
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">My decks</h1>
         <p className="text-muted-foreground">
-          Build quiz decks or pick a built-in set, then launch a distance
-          challenge game.
+          Build quiz decks or pick a built-in set, then launch a game.
         </p>
       </div>
 
@@ -371,24 +360,6 @@ export function HostDashboard() {
           </div>
         </section>
       ) : null}
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        {GAME_TYPES.map((type) => {
-          const Icon = GAME_ICONS[type.id];
-          return (
-          <Card key={type.id}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Icon className="size-5 text-primary" />
-                {type.name}
-                <DifficultyBadge difficulty={type.difficulty} />
-              </CardTitle>
-              <CardDescription>{type.description}</CardDescription>
-            </CardHeader>
-          </Card>
-          );
-        })}
-      </div>
 
       <Card>
         <CardHeader>

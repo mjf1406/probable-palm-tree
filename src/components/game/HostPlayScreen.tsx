@@ -49,6 +49,9 @@ export function HostPlayScreen({
               where: {
                 "deck.id": game.deckId,
                 gameType: game.gameType,
+                ...(game.gameType === "seaSailors" && game.seaRouteKey
+                  ? { seaRouteKey: game.seaRouteKey }
+                  : {}),
               },
             },
           },
@@ -67,6 +70,7 @@ export function HostPlayScreen({
         durationSeconds={game.durationSeconds}
         bestDistanceMeters={bestDistance}
         distanceLabel={gameMeta?.distanceLabel ?? "Distance"}
+        seaRouteDistanceMeters={game.seaRouteDistanceMeters}
       />
 
       <Card>

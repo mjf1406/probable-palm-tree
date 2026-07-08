@@ -249,14 +249,31 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
               durationSeconds={game.durationSeconds}
               bestDistanceMeters={bestDistance}
               distanceLabel={gameMeta?.distanceLabel ?? "Distance"}
+          seaRouteDistanceMeters={game.seaRouteDistanceMeters}
             />
 
-            <div className="rounded-xl border p-4 text-left">
-              <p className="text-sm text-muted-foreground">Deepest level reached</p>
-              <p className="text-lg font-semibold">
-                {getLevelName(game.gameType, totalDistance)}
-              </p>
-            </div>
+            {game.gameType === "seaSailors" ? (
+              <div className="rounded-xl border p-4 text-left">
+                <p className="text-sm text-muted-foreground">Route progress</p>
+                <p className="text-lg font-semibold">
+                  {game.seaRouteDistanceMeters
+                    ? `${Math.min(100, Math.round((totalDistance / game.seaRouteDistanceMeters) * 100))}%`
+                    : "--"}
+                </p>
+                <p className="mt-1 text-sm text-white/70">
+                  {formatDistance(totalDistance)} sailed
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border p-4 text-left">
+                <p className="text-sm text-muted-foreground">
+                  Deepest level reached
+                </p>
+                <p className="text-lg font-semibold">
+                  {getLevelName(game.gameType, totalDistance)}
+                </p>
+              </div>
+            )}
 
             <div className="rounded-xl border p-4 text-left">
               <p className="mb-3 text-sm font-medium">Player contributions</p>
@@ -302,6 +319,7 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
                   initialGameType={game.gameType}
                   initialQuestionTime={game.questionTimeSeconds}
                   initialDurationSeconds={game.durationSeconds}
+                  initialMetersPerCorrect={game.metersPerCorrect}
                   rematchGame={game}
                   players={players}
                   answerIds={answers.map((answer) => answer.id)}

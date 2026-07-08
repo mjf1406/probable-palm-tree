@@ -1,92 +1,187 @@
 {
-  "deepDivers": {
-    "goalMeters": 10935,
-    "levels": [
-      {
-        "level": 1,
-        "name": "Sunlight Zone (Epipelagic)",
-        "startingDistanceMeters": 0
-      },
-      {
-        "level": 2,
-        "name": "Twilight Zone (Mesopelagic)",
-        "startingDistanceMeters": 200
-      },
-      {
-        "level": 3,
-        "name": "Midnight Zone (Bathypelagic)",
-        "startingDistanceMeters": 1000
-      },
-      {
-        "level": 4,
-        "name": "The Abyss (Abyssopelagic)",
-        "startingDistanceMeters": 4000
-      },
-      {
-        "level": 5,
-        "name": "The Trenches (Hadalpelagic)",
-        "startingDistanceMeters": 6000
-      }
-    ]
-  },
-  "deepDrillers": {
-    "goalMeters": 6371000,
-    "levels": [
-      {
-        "level": 1,
-        "name": "Crust",
-        "startingDistanceMeters": 0
-      },
-      {
-        "level": 2,
-        "name": "Upper Mantle",
-        "startingDistanceMeters": 35000
-      },
-      {
-        "level": 3,
-        "name": "Lower Mantle",
-        "startingDistanceMeters": 660000
-      },
-      {
-        "level": 4,
-        "name": "Outer Core",
-        "startingDistanceMeters": 2890000
-      },
-      {
-        "level": 5,
-        "name": "Inner Core",
-        "startingDistanceMeters": 5150000
-      }
-    ]
-  },
-  "highFlyers": {
-    "goalMeters": 10000000,
-    "levels": [
-      {
-        "level": 1,
-        "name": "Troposphere",
-        "startingDistanceMeters": 0
-      },
-      {
-        "level": 2,
-        "name": "Stratosphere",
-        "startingDistanceMeters": 12000
-      },
-      {
-        "level": 3,
-        "name": "Mesosphere",
-        "startingDistanceMeters": 50000
-      },
-      {
-        "level": 4,
-        "name": "Thermosphere",
-        "startingDistanceMeters": 80000
-      },
-      {
-        "level": 5,
-        "name": "Exosphere",
-        "startingDistanceMeters": 700000
-      }
-    ]
-  }
+    "deepDivers": {
+        "goalMeters": 10994,
+        "levels": [
+            {
+                "level": 1,
+                "name": "Sunlight Zone (Epipelagic)",
+                "startingDistanceMeters": 0
+            },
+            {
+                "level": 2,
+                "name": "Twilight Zone (Mesopelagic)",
+                "startingDistanceMeters": 200
+            },
+            {
+                "level": 3,
+                "name": "Midnight Zone (Bathypelagic)",
+                "startingDistanceMeters": 1000
+            },
+            {
+                "level": 4,
+                "name": "The Abyss (Abyssopelagic)",
+                "startingDistanceMeters": 4000
+            },
+            {
+                "level": 5,
+                "name": "The Trenches (Hadalpelagic)",
+                "startingDistanceMeters": 6000
+            }
+        ]
+    },
+    "deepDrillers": {
+        "goalMeters": 6371000,
+        "levels": [
+            {
+                "level": 1,
+                "name": "Crust",
+                "startingDistanceMeters": 0
+            },
+            {
+                "level": 2,
+                "name": "Upper Mantle",
+                "startingDistanceMeters": 70000
+            },
+            {
+                "level": 3,
+                "name": "Lower Mantle",
+                "startingDistanceMeters": 1500000
+            },
+            {
+                "level": 4,
+                "name": "Outer Core",
+                "startingDistanceMeters": 2890000
+            },
+            {
+                "level": 5,
+                "name": "Inner Core",
+                "startingDistanceMeters": 5150000
+            }
+        ]
+    },
+    "highFlyers": {
+        "goalMeters": 10000000,
+        "levels": [
+            {
+                "level": 1,
+                "name": "Troposphere",
+                "startingDistanceMeters": 0
+            },
+            {
+                "level": 2,
+                "name": "Stratosphere",
+                "startingDistanceMeters": 18000
+            },
+            {
+                "level": 3,
+                "name": "Mesosphere",
+                "startingDistanceMeters": 50000
+            },
+            {
+                "level": 4,
+                "name": "Thermosphere",
+                "startingDistanceMeters": 85000
+            },
+            {
+                "level": 5,
+                "name": "Exosphere",
+                "startingDistanceMeters": 600000
+            }
+        ]
+    },
+    "spaceTravelers": {
+        "goalMeters": 1.87e13,
+        "levels": [
+            {
+                "level": 1,
+                "name": "Sun (Launch)",
+                "startingDistanceMeters": 0
+            },
+            {
+                "level": 2,
+                "name": "Mercury",
+                "startingDistanceMeters": 57900000000
+            },
+            {
+                "level": 3,
+                "name": "Venus",
+                "startingDistanceMeters": 108200000000
+            },
+            {
+                "level": 4,
+                "name": "Earth",
+                "startingDistanceMeters": 149600000000
+            },
+            {
+                "level": 5,
+                "name": "Mars",
+                "startingDistanceMeters": 227900000000
+            },
+            {
+                "level": 6,
+                "name": "Ceres",
+                "startingDistanceMeters": 414000000000
+            },
+            {
+                "level": 7,
+                "name": "Jupiter",
+                "startingDistanceMeters": 778500000000
+            },
+            {
+                "level": 8,
+                "name": "Saturn",
+                "startingDistanceMeters": 1433500000000
+            },
+            {
+                "level": 9,
+                "name": "Uranus",
+                "startingDistanceMeters": 2871000000000
+            },
+            {
+                "level": 10,
+                "name": "Neptune",
+                "startingDistanceMeters": 4498000000000
+            },
+            {
+                "level": 11,
+                "name": "Pluto",
+                "startingDistanceMeters": 5906000000000
+            },
+            {
+                "level": 12,
+                "name": "Haumea",
+                "startingDistanceMeters": 6450000000000
+            },
+            {
+                "level": 13,
+                "name": "Makemake",
+                "startingDistanceMeters": 6796200000000
+            },
+            {
+                "level": 14,
+                "name": "Eris",
+                "startingDistanceMeters": 10150000000000
+            },
+            {
+                "level": 15,
+                "name": "Voyager II",
+                "startingDistanceMeters": 17802000000000
+            },
+            {
+                "level": 16,
+                "name": "Voyager I",
+                "startingDistanceMeters": 18191000000000
+            }
+        ]
+    },
+    "seaSailors": {
+        "goalMeters": 3857000,
+        "levels": [
+            {
+                "level": 1,
+                "name": "Open Pacific",
+                "startingDistanceMeters": 0
+            }
+        ]
+    }
 }

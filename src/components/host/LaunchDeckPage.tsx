@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { Drill, Plane, Ship } from "lucide-react";
+import { Drill, Plane, Rocket, Sailboat, Ship, type LucideIcon } from "lucide-react";
 import { DifficultyBadge } from "@/components/game/DifficultyBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,25 +13,39 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { NumberInput } from "@/components/ui/number-input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { db } from "@/lib/db";
 import {
   DEFAULT_DURATION_MINUTES,
+  DEFAULT_METERS_PER_CORRECT,
   DEFAULT_QUESTION_TIME,
   DURATION_PRESETS,
   DURATION_STEP_MINUTES,
   GAME_TYPES,
+  GAME_LEVELS,
   MAX_DURATION_MINUTES,
   MAX_QUESTION_TIME,
   MIN_DURATION_MINUTES,
+  MIN_METERS_PER_CORRECT,
   MIN_QUESTION_TIME,
   QUESTION_TIME_CTRL_SHIFT_STEP,
   QUESTION_TIME_CTRL_STEP,
   QUESTION_TIME_SHIFT_STEP,
   QUESTION_TIME_STEP,
   buildGameQuestionsSnapshot,
+  formatGoalDistance,
+  getGameDifficultyBadges,
   durationMinutesToSeconds,
   generateJoinCode,
+  getMetersPerCorrectMax,
   parseDurationMinutes,
+  parseMetersPerCorrect,
   parseQuestionTimeSeconds,
   parseSettingScope,
   parseShuffleMode,
@@ -39,17 +53,32 @@ import {
   type SettingScope,
   type ShuffleMode,
 } from "@/lib/game";
+import {
+  computeGreatCircleDistanceMeters,
+  getDefaultSeaRoute,
+  getSeaCitiesForOcean,
+  getSeaCityById,
+  getSeaOceans,
+  seaRouteKey,
+  type SeaCityId,
+  type SeaOcean,
+} from "@/lib/seaSailors";
 import { ShuffleSettingField } from "@/components/host/ShuffleSettingField";
+import { GoalEstimateTable } from "@/components/host/GoalEstimateTable";
 import { launchGame } from "@/lib/useHostGameEngine";
 import { cn } from "@/lib/utils";
 
 type LaunchStep = "gameType" | "settings";
 
-const GAME_ICONS = {
+const GAME_ICONS: Record<GameType, LucideIcon> = {
   deepDivers: Ship,
   deepDrillers: Drill,
   highFlyers: Plane,
-} as const;
+  seaSailors: Sailboat,
+  spaceTravelers: Rocket,
+};
+
+const DEFAULT_SEA_ROUTE = getDefaultSeaRoute();
 
 export function LaunchDeckPage() {
   const { deckId } = useParams({ from: "/_host/l/$deckId" });
@@ -73,6 +102,18 @@ export function LaunchDeckPage() {
   const [durationMinutes, setDurationMinutes] = useState(
     String(DEFAULT_DURATION_MINUTES),
   );
+  const [metersPerCorrect, setMetersPerCorrect] = useState(
+    String(DEFAULT_METERS_PER_CORRECT),
+  );
+
+  const [seaOcean, setSeaOcean] = useState<SeaOcean>(DEFAULT_SEA_ROUTE.ocean);
+  const [seaFromCityId, setSeaFromCityId] = useState<SeaCityId>(
+    DEFAULT_SEA_ROUTE.fromCityId,
+  );
+  const [seaToCityId, setSeaToCityId] = useState<SeaCityId>(
+    DEFAULT_SEA_ROUTE.toCityId,
+  );
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { isLoading, data, error } = db.useQuery({
@@ -84,7 +125,58 @@ export function LaunchDeckPage() {
 
   const deck = data?.decks?.[0];
   const questions = deck?.questions ?? [];
-  const canLaunch = Boolean(deck && questions.length > 0 && gameType && user);
+  const seaFromCity = getSeaCityById(seaFromCityId);
+  const seaToCity = getSeaCityById(seaToCityId);
+  const seaRouteDistanceMeters =
+    seaFromCity && seaToCity
+      ? computeGreatCircleDistanceMeters(seaFromCity, seaToCity)
+      : null;
+  const seaRouteKeyValue =
+    gameType === "seaSailors"
+      ? seaRouteKey(seaOcean, seaFromCityId, seaToCityId)
+      : null;
+
+  const isSeaSailors = gameType === "seaSailors";
+  const seaRouteReady =
+    !isSeaSailors ||
+    (seaRouteDistanceMeters !== null && seaFromCityId !== seaToCityId);
+
+  const baseGoalMeters = gameType ? GAME_LEVELS[gameType].goalMeters : 10000;
+  const metersPerCorrectGoalMeters =
+    gameType === "seaSailors"
+      ? seaRouteDistanceMeters ?? baseGoalMeters
+      : baseGoalMeters;
+  const metersPerCorrectMax =
+    getMetersPerCorrectMax(metersPerCorrectGoalMeters);
+
+  const canLaunch = Boolean(
+    deck && questions.length > 0 && gameType && user && seaRouteReady,
+  );
+
+  useEffect(() => {
+    if (gameType !== "seaSailors") return;
+
+    const cities = getSeaCitiesForOcean(seaOcean);
+    if (cities.length === 0) return;
+
+    setSeaFromCityId((prev) => {
+      const stillInOcean = cities.some((c) => c.id === prev);
+      return stillInOcean ? prev : cities[0]!.id;
+    });
+    setSeaToCityId((prev) => {
+      const stillInOcean = cities.some((c) => c.id === prev);
+      return stillInOcean ? prev : cities[1]?.id ?? cities[0]!.id;
+    });
+  }, [gameType, seaOcean]);
+
+  useEffect(() => {
+    if (gameType !== "seaSailors") return;
+    if (seaToCityId !== seaFromCityId) return;
+
+    const cities = getSeaCitiesForOcean(seaOcean);
+    const next = cities.find((c) => c.id !== seaFromCityId)?.id;
+    if (next) setSeaToCityId(next);
+  }, [gameType, seaOcean, seaFromCityId, seaToCityId]);
 
   useEffect(() => {
     if (!deck) return;
@@ -124,9 +216,21 @@ export function LaunchDeckPage() {
         questionsSnapshot: snapshot,
         questionTimeSeconds: parseQuestionTimeSeconds(questionTime),
         durationSeconds: durationMinutesToSeconds(durationMinutes),
+        metersPerCorrect: parseMetersPerCorrect(metersPerCorrect),
         deckTitle: deck.title,
         deckId: deck.id,
         ...shuffleSettings,
+        ...(gameType === "seaSailors" &&
+        seaRouteDistanceMeters !== null &&
+        seaRouteKeyValue
+          ? {
+              seaOcean,
+              seaFromCity: seaFromCityId,
+              seaToCity: seaToCityId,
+              seaRouteDistanceMeters,
+              seaRouteKey: seaRouteKeyValue,
+            }
+          : {}),
       });
       await navigate({ to: "/g/$code", params: { code } });
     } finally {
@@ -217,7 +321,7 @@ export function LaunchDeckPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {GAME_TYPES.map((type) => {
                 const selected = gameType === type.id;
                 const Icon = GAME_ICONS[type.id];
@@ -237,7 +341,9 @@ export function LaunchDeckPage() {
                     <div className="mb-3 flex items-center gap-2">
                       <Icon className="size-5 text-primary" />
                       <span className="font-semibold">{type.name}</span>
-                      <DifficultyBadge difficulty={type.difficulty} />
+                      {getGameDifficultyBadges(type.id).map((d) => (
+                        <DifficultyBadge key={d} difficulty={d} />
+                      ))}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {type.description}
@@ -281,6 +387,115 @@ export function LaunchDeckPage() {
               onModeChange={setQuestionShuffleMode}
               onScopeChange={setQuestionShuffleScope}
             />
+
+            {gameType === "seaSailors" ? (
+              <div className="space-y-3 rounded-xl border border-border/50 bg-card p-4">
+                <div className="space-y-2">
+                  <Label>Ocean</Label>
+                  <Select
+                    value={seaOcean}
+                    onValueChange={(value) =>
+                      setSeaOcean(value as SeaOcean)
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an ocean" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getSeaOceans().map((ocean) => (
+                        <SelectItem key={ocean} value={ocean}>
+                          {ocean}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Departure city</Label>
+                  <Select
+                    value={seaFromCityId}
+                    onValueChange={(value) => setSeaFromCityId(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a departure city" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getSeaCitiesForOcean(seaOcean).map((city) => (
+                        <SelectItem key={city.id} value={city.id}>
+                          {city.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Destination city</Label>
+                  <Select
+                    value={seaToCityId}
+                    onValueChange={(value) => setSeaToCityId(value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a destination city" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getSeaCitiesForOcean(seaOcean)
+                        .filter((city) => city.id !== seaFromCityId)
+                        .map((city) => (
+                          <SelectItem key={city.id} value={city.id}>
+                            {city.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="text-sm text-muted-foreground">
+                  Route goal:{" "}
+                  <span className="font-mono text-foreground">
+                    {seaRouteDistanceMeters !== null
+                      ? formatGoalDistance(seaRouteDistanceMeters)
+                      : "--"}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <Label htmlFor="meters-per-correct">
+                Distance per correct answer (meters)
+              </Label>
+              <NumberInput
+                id="meters-per-correct"
+                value={metersPerCorrect}
+                onChange={(value) => {
+                  if (value.trim() === "") {
+                    setMetersPerCorrect(value);
+                    return;
+                  }
+                  const n = Number(value);
+                  if (!Number.isFinite(n)) {
+                    setMetersPerCorrect(value);
+                    return;
+                  }
+                  setMetersPerCorrect(String(Math.min(n, metersPerCorrectMax)));
+                }}
+                min={MIN_METERS_PER_CORRECT}
+                max={metersPerCorrectMax}
+                step={1}
+                inputClassName="max-w-40"
+              />
+              {gameType ? (
+                <GoalEstimateTable
+                  gameType={gameType}
+                  metersPerCorrect={metersPerCorrect}
+                  goalMetersOverride={
+                    gameType === "seaSailors" ? seaRouteDistanceMeters : undefined
+                  }
+                />
+              ) : null}
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="question-time">Seconds per question</Label>

@@ -66,6 +66,30 @@ function AuthActions({ className }: { className?: string }) {
   );
 }
 
+function HostNavLinks({
+  onNavigate,
+  className,
+}: {
+  onNavigate?: () => void;
+  className?: string;
+}) {
+  const { isLoading, user } = db.useAuth();
+  const isHost = !isLoading && user && isGoogleUser(user);
+
+  return (
+    <>
+      <NavLink to="/" exact onNavigate={onNavigate} className={className}>
+        My decks
+      </NavLink>
+      {isHost ? (
+        <NavLink to="/games" onNavigate={onNavigate} className={className}>
+          Games
+        </NavLink>
+      ) : null}
+    </>
+  );
+}
+
 function MobileNav({
   open,
   onOpenChange,
@@ -90,9 +114,7 @@ function MobileNav({
       </SheetTrigger>
       <SheetContent side="right" className="w-full max-w-xs">
         <nav className="flex flex-col gap-1 px-4 pt-4" aria-label="Main">
-          <NavLink to="/" exact onNavigate={close} className="w-full">
-            My decks
-          </NavLink>
+          <HostNavLinks onNavigate={close} className="w-full" />
         </nav>
         <SheetFooter className="border-t border-border">
           {!isLoading && user && isGoogleUser(user) ? (
@@ -137,9 +159,7 @@ export function Navbar() {
 
         <div className="flex flex-1 items-center justify-end gap-3 md:justify-between">
           <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
-            <NavLink to="/" exact>
-              My decks
-            </NavLink>
+            <HostNavLinks />
           </nav>
 
           <div className="flex items-center gap-2">

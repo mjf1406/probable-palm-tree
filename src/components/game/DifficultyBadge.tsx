@@ -6,6 +6,8 @@ const DIFFICULTY_STYLES: Record<GameDifficulty, string> = {
   easy: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   medium: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
   hard: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400",
+  veryHard:
+    "border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-400",
 };
 
 export function DifficultyBadge({

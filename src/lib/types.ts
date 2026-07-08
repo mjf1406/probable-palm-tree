@@ -37,7 +37,16 @@ export type GameRecord = {
   durationSeconds: number;
   startedAt?: number | null;
   questionTimeSeconds: number;
+  metersPerCorrect?: number;
   questionsSnapshot: QuestionSnapshot[];
+
+  // Sea Sailors route selection (optional; only relevant when gameType === "seaSailors")
+  seaOcean?: string | null;
+  seaFromCity?: string | null;
+  seaToCity?: string | null;
+  seaRouteDistanceMeters?: number | null;
+  seaRouteKey?: string | null;
+
   answerShuffleMode?: ShuffleMode;
   questionShuffleMode?: ShuffleMode;
   answerShuffleScope?: SettingScope;
@@ -76,6 +85,7 @@ export type AnswerRecord = {
 export type HighScoreRecord = {
   id: string;
   gameType: GameType;
+  seaRouteKey?: string | null;
   distanceMeters: number;
   achievedAt: number;
   deck?: { id: string } | null;
