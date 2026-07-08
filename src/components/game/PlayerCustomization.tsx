@@ -1,6 +1,6 @@
 /** @format */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIconPickerLazy } from "@/components/icons/FontAwesomeIconPickerLazy";
 import { PlayerAvatar } from "@/components/game/PlayerAvatar";
@@ -13,11 +13,9 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { AVATAR_COLORS, type AvatarColorId } from "@/lib/player-avatars";
-import {
-    iconIdFromDefinition,
-    resolveIconId,
-} from "@/lib/fontawesome-icon-catalog";
+import { iconIdFromDefinition } from "@/lib/fontawesome-icon-catalog";
 import { updatePlayerAppearance } from "@/lib/useHostGameEngine";
+import { useResolvedIcon } from "@/hooks/useResolvedIcon";
 import { cn } from "@/lib/utils";
 
 type PlayerCustomizationProps = {
@@ -37,23 +35,14 @@ export function PlayerCustomization({
         null,
     );
     const [selectedColor, setSelectedColor] = useState<AvatarColorId | null>(
-        (avatarColor as AvatarColorId | null) ?? null,
+        null,
     );
     const [isSaving, setIsSaving] = useState(false);
 
-    useEffect(() => {
-        if (!iconId) {
-            setSelectedIcon(null);
-            return;
-        }
-        void resolveIconId(iconId).then((icon) => {
-            if (icon) setSelectedIcon(icon);
-        });
-    }, [iconId]);
-
-    useEffect(() => {
-        setSelectedColor((avatarColor as AvatarColorId | null) ?? null);
-    }, [avatarColor]);
+    const resolvedIcon = useResolvedIcon(iconId);
+    const displayIcon = selectedIcon ?? resolvedIcon;
+    const displayColor =
+        selectedColor ?? (avatarColor as AvatarColorId | null) ?? null;
 
     const persistAppearance = async (next: {
         iconId?: string | null;
@@ -91,11 +80,11 @@ export function PlayerCustomization({
                     <PlayerAvatar
                         nickname={nickname}
                         iconId={
-                            selectedIcon
-                                ? iconIdFromDefinition(selectedIcon)
+                            displayIcon
+                                ? iconIdFromDefinition(displayIcon)
                                 : iconId
                         }
-                        avatarColor={selectedColor ?? avatarColor}
+                        avatarColor={displayColor}
                         className="size-14"
                         iconClassName="size-7!"
                     />
@@ -110,7 +99,7 @@ export function PlayerCustomization({
                 <div className="space-y-2">
                     <Label>Icon</Label>
                     <FontAwesomeIconPickerLazy
-                        value={selectedIcon}
+                        value={displayIcon}
                         onChange={handleIconChange}
                         className="w-full max-w-none"
                     />
@@ -126,7 +115,7 @@ export function PlayerCustomization({
                                 aria-label={color.label}
                                 className={cn(
                                     "size-9 rounded-full border-2 transition-transform hover:scale-105",
-                                    selectedColor === color.id
+                                    displayColor === color.id
                                         ? "border-foreground ring-2 ring-foreground/20"
                                         : "border-transparent",
                                 )}
