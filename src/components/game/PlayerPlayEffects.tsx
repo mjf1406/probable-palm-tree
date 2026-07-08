@@ -1,7 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { DisconnectKickWatcher } from "@/components/game/DisconnectKickWatcher";
 import { GamePlayerPresence } from "@/components/game/GamePresence";
 import { useAutoLeaveOnClose } from "@/hooks/useAutoLeaveOnClose";
 import { clearStoredPlayerId } from "@/lib/auth";
@@ -15,7 +14,7 @@ type PlayerPlayEffectsProps = {
   children: ReactNode;
 };
 
-/** Presence, kick detection, and auto-leave for players — no chrome. */
+/** Presence and auto-leave for players — no chrome. */
 export function PlayerPlayEffects({
   code,
   playerId,
@@ -25,7 +24,6 @@ export function PlayerPlayEffects({
   const {
     upperCode,
     game,
-    players,
     isLoading,
     isHost,
     currentPlayer,
@@ -73,13 +71,6 @@ export function PlayerPlayEffects({
           gameId={game.id}
           playerId={currentPlayer.id}
           nickname={currentPlayer.nickname}
-        />
-      ) : null}
-      {game ? (
-        <DisconnectKickWatcher
-          game={game}
-          players={players}
-          isHost={false}
         />
       ) : null}
       {children}

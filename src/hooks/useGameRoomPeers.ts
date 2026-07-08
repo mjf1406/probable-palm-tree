@@ -1,17 +1,11 @@
-import { useEffect } from "react";
 import { db } from "@/lib/db";
-import type { GamePresenceData } from "@/lib/presence";
 
+/** Subscribe to room peers without publishing presence (host publishes via GameHostPresence). */
 export function useGameRoomPeers(gameId: string) {
   const room = db.room("game", gameId);
-  const presence: GamePresenceData = { isHost: true };
-  const { peers, publishPresence } = db.rooms.usePresence(room, {
-    initialPresence: presence,
+  const { peers } = db.rooms.usePresence(room, {
+    user: false,
   });
-
-  useEffect(() => {
-    publishPresence({ isHost: true });
-  }, [publishPresence]);
 
   return peers;
 }
