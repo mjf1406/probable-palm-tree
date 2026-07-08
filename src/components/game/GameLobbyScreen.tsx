@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { DisconnectKickWatcher } from "@/components/game/DisconnectKickWatcher";
@@ -8,6 +8,7 @@ import {
   GamePlayerPresence,
 } from "@/components/game/GamePresence";
 import { RobotGame, SubmarineGame } from "@/components/game/GameVisuals";
+import { GameSetupDialog, toSnapshot } from "@/components/host/GameSetupDialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { clearStoredPlayerId } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { STARTING_LIVES, formatCode } from "@/lib/game";
 import { joinSearchDefaults } from "@/lib/routes";
 import { useGameSession } from "@/lib/useGameSession";
@@ -32,16 +34,29 @@ type GameLobbyScreenProps = {
 
 export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
   const navigate = useNavigate();
+  const [rematchOpen, setRematchOpen] = useState(false);
   const {
     upperCode,
     isLoading,
     error,
     game,
     players,
+    answers,
     isHost,
     currentPlayer,
     gameMeta,
   } = useGameSession(code, playerId);
+  const { user } = db.useAuth();
+  const { data: decksData } = db.useQuery(
+    isHost && user
+      ? {
+          decks: {
+            questions: {},
+            owner: {},
+          },
+        }
+      : null,
+  );
   const { leave, isLeaving, hasLeftRef } = useLeaveGame(upperCode);
   const { cancel, isCancelling } = useCancelGame();
   const hadLobbyGameRef = useRef(false);
@@ -153,6 +168,21 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
   const GameVisual =
     game.gameType === "robot" ? RobotGame : SubmarineGame;
 
+  const launchableDecks = (decksData?.decks ?? [])
+    .map((deck) => ({
+      id: deck.id as string,
+      title: deck.title as string,
+      questions: toSnapshot(
+        (deck.questions ?? []) as {
+          text: string;
+          options: unknown;
+          correctIndex: number;
+          order: number;
+        }[],
+      ),
+    }))
+    .filter((deck) => deck.questions.length > 0);
+
   if (game.status === "won" || game.status === "lost") {
     return (
       <main className="mx-auto max-w-4xl space-y-6 px-6 py-10">
@@ -174,11 +204,26 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
               maxLives={STARTING_LIVES}
               resourceLabel={gameMeta?.resource ?? "Resource"}
             />
-            <Button asChild>
-              <Link to="/join" search={joinSearchDefaults}>
-                Play again
-              </Link>
-            </Button>
+            {isHost ? (
+              <>
+                <Button onClick={() => setRematchOpen(true)}>Play again</Button>
+                <GameSetupDialog
+                  open={rematchOpen}
+                  onOpenChange={setRematchOpen}
+                  mode="rematch"
+                  decks={launchableDecks}
+                  initialDeckId={game.deckId}
+                  initialGameType={game.gameType}
+                  initialQuestionTime={game.questionTimeSeconds}
+                  rematchGame={game}
+                  answerIds={answers.map((answer) => answer.id)}
+                />
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Waiting for the host to start the next round...
+              </p>
+            )}
           </CardContent>
         </Card>
       </main>
@@ -210,6 +255,7 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
         gameTypeName={gameMeta?.name ?? "Game"}
         players={players}
         isHost={isHost}
+        currentPlayer={currentPlayer}
         currentPlayerNickname={currentPlayer?.nickname}
         onStart={() => void handleStart()}
         onCancel={

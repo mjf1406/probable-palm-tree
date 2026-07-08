@@ -9,9 +9,21 @@ import {
   GameHostPresence,
   GamePlayerPresence,
 } from "@/components/game/GamePresence";
+import { PlayerAvatar } from "@/components/game/PlayerAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Sheet,
   SheetContent,
@@ -31,52 +43,39 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useQuestionTimer } from "@/hooks/useQuestionTimer";
 import { useAutoLeaveOnClose } from "@/hooks/useAutoLeaveOnClose";
 import { clearStoredPlayerId } from "@/lib/auth";
-import { STARTING_LIVES, getTimeRemaining } from "@/lib/game";
+import { STARTING_LIVES } from "@/lib/game";
 import { joinSearchDefaults } from "@/lib/routes";
+import { useCancelGame } from "@/lib/useCancelGame";
 import { useGameSession } from "@/lib/useGameSession";
 import { useLeaveGame } from "@/lib/useLeaveGame";
 
-function useQuestionTimer(
-  questionStartedAt: number | undefined,
-  questionTimeSeconds: number,
-  isPlaying: boolean,
-) {
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!isPlaying) return;
-    const interval = window.setInterval(() => setNow(Date.now()), 250);
-    return () => window.clearInterval(interval);
-  }, [isPlaying]);
-
-  if (!isPlaying || questionStartedAt == null) {
-    return questionTimeSeconds;
-  }
-
-  return getTimeRemaining(questionStartedAt, questionTimeSeconds, now);
-}
-
-type PlayGameLayoutProps = {
-  code: string;
-  playerId: string | null;
-  children: ReactNode;
-};
+import type { AnswerRecord } from "@/lib/types";
 
 function SquadPanel({
   players,
-  currentAnswersCount,
+  currentAnswers,
   totalPlayers,
   timeRemaining,
   questionTimeSeconds,
 }: {
-  players: { id: string; nickname: string }[];
-  currentAnswersCount: number;
+  players: {
+    id: string;
+    nickname: string;
+    iconId?: string | null;
+    avatarColor?: string | null;
+  }[];
+  currentAnswers: AnswerRecord[];
   totalPlayers: number;
   timeRemaining: number;
   questionTimeSeconds: number;
 }) {
+  const answeredIds = new Set(
+    currentAnswers.map((answer) => answer.player?.id).filter(Boolean),
+  );
+
   return (
     <div className="flex h-full flex-col gap-4 p-4">
       <div>
@@ -93,22 +92,45 @@ function SquadPanel({
       </div>
       <div>
         <p className="mb-2 text-sm font-medium">
-          Squad ({currentAnswersCount}/{totalPlayers} answered)
+          Squad ({currentAnswers.length}/{totalPlayers} answered)
         </p>
         <ul className="space-y-2">
-          {players.map((player) => (
-            <li
-              key={player.id}
-              className="rounded-md border px-3 py-2 text-sm font-medium"
-            >
-              {player.nickname}
-            </li>
-          ))}
+          {players.map((player) => {
+            const hasAnswered = answeredIds.has(player.id);
+            const status = hasAnswered ? "Answered" : "Waiting";
+
+            return (
+              <li
+                key={player.id}
+                className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+              >
+                <PlayerAvatar
+                  nickname={player.nickname}
+                  iconId={player.iconId}
+                  avatarColor={player.avatarColor}
+                  className="size-7"
+                  iconClassName="size-3.5"
+                />
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {player.nickname}
+                </span>
+                <Badge variant="outline" className="shrink-0 text-xs">
+                  {status}
+                </Badge>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>
   );
 }
+
+type PlayGameLayoutProps = {
+  code: string;
+  playerId: string | null;
+  children: ReactNode;
+};
 
 export function PlayGameLayout({
   code,
@@ -118,6 +140,7 @@ export function PlayGameLayout({
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [squadOpen, setSquadOpen] = useState(false);
+  const { cancel, isCancelling } = useCancelGame();
   const {
     upperCode,
     game,
@@ -171,6 +194,14 @@ export function PlayGameLayout({
     void leave(currentPlayer.id);
   };
 
+  const handleEndGame = () => {
+    if (!game) return;
+    void cancel(
+      game.id,
+      players.map((player) => player.id),
+    );
+  };
+
   const showLeaveButton = !isHost && Boolean(currentPlayer);
 
   if (isLoading || !game) {
@@ -184,7 +215,7 @@ export function PlayGameLayout({
   const squadPanel = (
     <SquadPanel
       players={players}
-      currentAnswersCount={currentAnswers.length}
+      currentAnswers={currentAnswers}
       totalPlayers={players.length}
       timeRemaining={timeRemaining}
       questionTimeSeconds={game.questionTimeSeconds}
@@ -269,6 +300,44 @@ export function PlayGameLayout({
                 {squadPanel}
               </SheetContent>
             </Sheet>
+            {isHost ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    disabled={isCancelling}
+                  >
+                    {isCancelling ? "Ending..." : "End game"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>End this game?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will immediately remove all players and invalidate
+                      this join code. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isCancelling}>
+                      Keep playing
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      disabled={isCancelling}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        handleEndGame();
+                      }}
+                    >
+                      {isCancelling ? "Ending..." : "End game"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : null}
             {showLeaveButton ? (
               <LeaveGameButton
                 className="w-full xl:hidden"

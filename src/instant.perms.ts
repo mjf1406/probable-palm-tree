@@ -48,7 +48,7 @@ const rules = {
       view: "true",
       create: "auth.id in data.ref('player.user.id')",
       update: "false",
-      delete: "false",
+      delete: "auth.id in data.ref('game.host.id')",
     },
   },
 } satisfies InstantRules;

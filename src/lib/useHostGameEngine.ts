@@ -66,12 +66,14 @@ export function useHostGameEngine(
           questionIndex >= game.questionsSnapshot.length - 1;
 
         window.setTimeout(() => {
+          const endedAt = Date.now();
           if (nextLives <= 0) {
             void db.transact(
               db.tx.games[game.id].update({
                 status: "lost",
                 progress: nextProgress,
                 lives: 0,
+                endedAt,
               }),
             );
           } else if (isLastQuestion) {
@@ -80,6 +82,7 @@ export function useHostGameEngine(
                 status: nextLives > 0 ? "won" : "lost",
                 progress: nextProgress,
                 lives: Math.max(0, nextLives),
+                endedAt,
               }),
             );
           } else {
@@ -128,12 +131,16 @@ export async function launchGame({
   gameType,
   questionsSnapshot,
   questionTimeSeconds,
+  deckTitle,
+  deckId,
 }: {
   hostId: string;
   code: string;
   gameType: string;
   questionsSnapshot: unknown;
   questionTimeSeconds: number;
+  deckTitle?: string;
+  deckId?: string;
 }) {
   const gameId = id();
   await db.transact(
@@ -148,6 +155,8 @@ export async function launchGame({
         questionTimeSeconds,
         questionsSnapshot,
         createdAt: Date.now(),
+        deckTitle,
+        deckId,
       })
       .link({ host: hostId }),
   );
@@ -183,5 +192,66 @@ export async function cancelGame(gameId: string, playerIds: string[]) {
   await db.transact([
     ...playerIds.map((playerId) => db.tx.players[playerId].delete()),
     db.tx.games[gameId].delete(),
+  ]);
+}
+
+export async function updatePlayerAppearance(
+  playerId: string,
+  {
+    iconId,
+    avatarColor,
+  }: {
+    iconId?: string | null;
+    avatarColor?: string | null;
+  },
+) {
+  const updates: { iconId?: string; avatarColor?: string } = {};
+  if (iconId !== undefined && iconId !== null) updates.iconId = iconId;
+  if (avatarColor !== undefined && avatarColor !== null) {
+    updates.avatarColor = avatarColor;
+  }
+  if (Object.keys(updates).length === 0) return;
+  await db.transact(db.tx.players[playerId].update(updates));
+}
+
+export async function resetGameForRematch({
+  gameId,
+  answerIds,
+  gameType,
+  questionsSnapshot,
+  questionTimeSeconds,
+  deckTitle,
+  deckId,
+}: {
+  gameId: string;
+  answerIds: string[];
+  gameType?: string;
+  questionsSnapshot?: unknown;
+  questionTimeSeconds?: number;
+  deckTitle?: string;
+  deckId?: string;
+}) {
+  const gameUpdates: Record<string, unknown> = {
+    status: "lobby",
+    currentQuestionIndex: 0,
+    questionStartedAt: null,
+    progress: 0,
+    lives: STARTING_LIVES,
+    endedAt: null,
+  };
+
+  if (gameType !== undefined) gameUpdates.gameType = gameType;
+  if (questionsSnapshot !== undefined) {
+    gameUpdates.questionsSnapshot = questionsSnapshot;
+  }
+  if (questionTimeSeconds !== undefined) {
+    gameUpdates.questionTimeSeconds = questionTimeSeconds;
+  }
+  if (deckTitle !== undefined) gameUpdates.deckTitle = deckTitle;
+  if (deckId !== undefined) gameUpdates.deckId = deckId;
+
+  await db.transact([
+    ...answerIds.map((answerId) => db.tx.answers[answerId].delete()),
+    db.tx.games[gameId].update(gameUpdates),
   ]);
 }

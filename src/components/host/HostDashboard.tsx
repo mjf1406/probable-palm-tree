@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { id } from "@instantdb/react";
-import { Plus, Rocket, Ship } from "lucide-react";
-import { LaunchGameDialog } from "@/components/host/LaunchGameDialog";
+import { ExternalLink, Plus, Rocket, Ship } from "lucide-react";
+import { GameSetupDialog, toSnapshot } from "@/components/host/GameSetupDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,9 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/lib/db";
 import { GAME_TYPES } from "@/lib/game";
-import type { QuestionSnapshot } from "@/lib/types";
+import type { GameRecord } from "@/lib/types";
+
+const RECENT_GAME_MS = 24 * 60 * 60 * 1000;
 
 type DeckWithQuestions = {
   id: string;
@@ -35,18 +37,29 @@ type DeckWithQuestions = {
   }[];
 };
 
-function toSnapshot(
-  questions: DeckWithQuestions["questions"],
-): QuestionSnapshot[] {
-  return [...questions]
-    .sort((a, b) => a.order - b.order)
-    .map((question) => ({
-      text: question.text,
-      options: Array.isArray(question.options)
-        ? (question.options as string[])
-        : [],
-      correctIndex: question.correctIndex,
-    }));
+function formatRelativeTime(timestamp: number) {
+  const diffMs = Date.now() - timestamp;
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function statusLabel(status: GameRecord["status"]) {
+  switch (status) {
+    case "lobby":
+      return "Lobby";
+    case "playing":
+      return "Playing";
+    case "won":
+      return "Won";
+    case "lost":
+      return "Lost";
+    default:
+      return status;
+  }
 }
 
 function DeckCard({
@@ -96,10 +109,50 @@ function DeckCard({
   );
 }
 
+function ActiveGameCard({ game }: { game: GameRecord & { players?: { id: string }[] } }) {
+  const isActive = game.status === "lobby" || game.status === "playing";
+  const playerCount = game.players?.length ?? 0;
+
+  return (
+    <Card className={isActive ? "border-primary/40" : "opacity-80"}>
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="font-mono text-lg tracking-wider">
+            {game.code}
+          </CardTitle>
+          <Badge variant={isActive ? "default" : "secondary"}>
+            {statusLabel(game.status)}
+          </Badge>
+        </div>
+        <CardDescription>
+          {game.deckTitle ?? "Untitled deck"} · {playerCount} player
+          {playerCount === 1 ? "" : "s"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pb-2">
+        <p className="text-xs text-muted-foreground">
+          {game.endedAt
+            ? `Ended ${formatRelativeTime(game.endedAt)}`
+            : `Started ${formatRelativeTime(game.createdAt)}`}
+        </p>
+      </CardContent>
+      <CardFooter>
+        <Button asChild size="sm" className="w-full">
+          <Link to="/g/$code" params={{ code: game.code }}>
+            <ExternalLink className="size-4" />
+            Open
+          </Link>
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
 export function HostDashboard() {
   const navigate = useNavigate();
   const { user } = db.useAuth();
-  const [launchDeck, setLaunchDeck] = useState<DeckWithQuestions | null>(null);
+  const [launchDeckId, setLaunchDeckId] = useState<string | null>(null);
+  const [launchOpen, setLaunchOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
@@ -110,6 +163,13 @@ export function HostDashboard() {
             questions: {},
             owner: {},
           },
+          $users: {
+            $: { where: { id: user.id } },
+            hostedGames: {
+              $: { order: { createdAt: "desc" } },
+              players: {},
+            },
+          },
         }
       : null,
   );
@@ -119,6 +179,31 @@ export function HostDashboard() {
     (deck) => !deck.isBuiltIn && deck.owner?.id === user?.id,
   );
   const builtInDecks = allDecks.filter((deck) => deck.isBuiltIn);
+
+  const launchableDecks = useMemo(
+    () =>
+      [...myDecks, ...builtInDecks]
+        .map((deck) => ({
+          id: deck.id,
+          title: deck.title,
+          questions: toSnapshot(deck.questions),
+        }))
+        .filter((deck) => deck.questions.length > 0),
+    [myDecks, builtInDecks],
+  );
+
+  const activeGames = useMemo(() => {
+    const games = (data?.$users?.[0]?.hostedGames ?? []) as (GameRecord & {
+      players?: { id: string }[];
+    })[];
+    const cutoff = Date.now() - RECENT_GAME_MS;
+    return games.filter(
+      (game) =>
+        game.status === "lobby" ||
+        game.status === "playing" ||
+        (game.endedAt != null && game.endedAt >= cutoff),
+    );
+  }, [data?.$users]);
 
   const handleCreateDeck = async () => {
     if (!user || !newTitle.trim()) return;
@@ -142,6 +227,11 @@ export function HostDashboard() {
     }
   };
 
+  const openLaunch = (deck: DeckWithQuestions) => {
+    setLaunchDeckId(deck.id);
+    setLaunchOpen(true);
+  };
+
   return (
     <main className="mx-auto max-w-5xl space-y-8 px-6 py-10">
       <div className="space-y-2">
@@ -150,6 +240,22 @@ export function HostDashboard() {
           Build quiz decks or pick a built-in set, then launch a cooperative game.
         </p>
       </div>
+
+      {activeGames.length > 0 ? (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold">Active games</h2>
+            <p className="text-sm text-muted-foreground">
+              In-progress sessions and games from the last 24 hours.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {activeGames.map((game) => (
+              <ActiveGameCard key={game.id} game={game} />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {GAME_TYPES.map((type) => (
@@ -215,11 +321,7 @@ export function HostDashboard() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {myDecks.map((deck) => (
-                  <DeckCard
-                    key={deck.id}
-                    deck={deck}
-                    onLaunch={setLaunchDeck}
-                  />
+                  <DeckCard key={deck.id} deck={deck} onLaunch={openLaunch} />
                 ))}
               </div>
             )}
@@ -232,11 +334,7 @@ export function HostDashboard() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {builtInDecks.map((deck) => (
-                  <DeckCard
-                    key={deck.id}
-                    deck={deck}
-                    onLaunch={setLaunchDeck}
-                  />
+                  <DeckCard key={deck.id} deck={deck} onLaunch={openLaunch} />
                 ))}
               </div>
             )}
@@ -244,16 +342,16 @@ export function HostDashboard() {
         </Tabs>
       )}
 
-      {launchDeck ? (
-        <LaunchGameDialog
-          open={Boolean(launchDeck)}
-          onOpenChange={(open) => {
-            if (!open) setLaunchDeck(null);
-          }}
-          deckTitle={launchDeck.title}
-          questions={toSnapshot(launchDeck.questions)}
-        />
-      ) : null}
+      <GameSetupDialog
+        open={launchOpen}
+        onOpenChange={(open) => {
+          setLaunchOpen(open);
+          if (!open) setLaunchDeckId(null);
+        }}
+        mode="launch"
+        decks={launchableDecks}
+        initialDeckId={launchDeckId}
+      />
     </main>
   );
 }

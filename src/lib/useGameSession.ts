@@ -19,6 +19,9 @@ export function normalizeGame(
     questionTimeSeconds: raw.questionTimeSeconds as number,
     questionsSnapshot: parseQuestionsSnapshot(raw.questionsSnapshot),
     createdAt: raw.createdAt as number,
+    deckTitle: raw.deckTitle as string | undefined,
+    deckId: raw.deckId as string | undefined,
+    endedAt: raw.endedAt as number | undefined,
     host: (raw.host as { id: string } | undefined) ?? null,
   };
 }

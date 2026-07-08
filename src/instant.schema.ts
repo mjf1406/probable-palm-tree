@@ -36,10 +36,15 @@ const _schema = i.schema({
       questionTimeSeconds: i.number(),
       questionsSnapshot: i.json(),
       createdAt: i.number().indexed(),
+      deckTitle: i.string().optional(),
+      deckId: i.string().optional(),
+      endedAt: i.number().indexed().optional(),
     }),
     players: i.entity({
       nickname: i.string(),
       joinedAt: i.number().indexed(),
+      iconId: i.string().optional(),
+      avatarColor: i.string().optional(),
     }),
     answers: i.entity({
       questionIndex: i.number().indexed(),

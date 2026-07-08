@@ -17,7 +17,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { PlayerAvatar } from "@/components/game/PlayerAvatar";
+import { PlayerCustomization } from "@/components/game/PlayerCustomization";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +38,7 @@ type LobbyViewProps = {
     gameTypeName: string;
     players: PlayerRecord[];
     isHost: boolean;
+    currentPlayer?: PlayerRecord | null;
     currentPlayerNickname?: string;
     onStart: () => void;
     onLeave?: () => void;
@@ -57,21 +59,12 @@ function getJoinUrl(code: string) {
     return `${getJoinPageUrl()}?code=${code}`;
 }
 
-function getInitials(nickname: string) {
-    return nickname
-        .replace(/([a-z])([A-Z])/g, "$1 $2")
-        .split(/\s+/)
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-}
-
 export function LobbyView({
     code,
     gameTypeName,
     players,
     isHost,
+    currentPlayer,
     currentPlayerNickname,
     onStart,
     onLeave,
@@ -132,8 +125,8 @@ export function LobbyView({
                                 </CardTitle>
                                 <CardDescription className="text-base leading-relaxed">
                                     Players should open the join page, enter
-                                    this code, pick a nickname, and they&apos;ll
-                                    appear in your lobby automatically.
+                                    this code, pick a nickname, then choose your
+                                    icon and color in the lobby.
                                 </CardDescription>
                                 <CardAction className="flex self-stretch">
                                     <Button
@@ -170,6 +163,13 @@ export function LobbyView({
                                                     3
                                                 </span>
                                                 Type in your nickname.
+                                            </li>
+                                            <li className="flex gap-3">
+                                                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/70 text-lg font-bold text-primary-foreground">
+                                                    4
+                                                </span>
+                                                Pick an icon and color in the
+                                                lobby.
                                             </li>
                                         </ol>
 
@@ -255,13 +255,13 @@ export function LobbyView({
                                                         setKickTarget(player)
                                                     }
                                                 >
-                                                    <Avatar className="size-10">
-                                                        <AvatarFallback className="font-semibold">
-                                                            {getInitials(
-                                                                player.nickname,
-                                                            )}
-                                                        </AvatarFallback>
-                                                    </Avatar>
+                                                    <PlayerAvatar
+                                                        nickname={player.nickname}
+                                                        iconId={player.iconId}
+                                                        avatarColor={
+                                                            player.avatarColor
+                                                        }
+                                                    />
                                                     <div className="min-w-0 flex-1">
                                                         <p className="truncate font-medium">
                                                             {player.nickname}
@@ -328,7 +328,7 @@ export function LobbyView({
     }
 
     return (
-        <main className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-lg items-center px-6 py-10">
+        <main className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-lg flex-col gap-6 px-6 py-10">
             <Card className="w-full text-center">
                 <CardHeader>
                     <Badge
@@ -369,7 +369,15 @@ export function LobbyView({
                                             ? "default"
                                             : "outline"
                                     }
+                                    className="gap-1.5"
                                 >
+                                    <PlayerAvatar
+                                        nickname={player.nickname}
+                                        iconId={player.iconId}
+                                        avatarColor={player.avatarColor}
+                                        className="size-5"
+                                        iconClassName="size-3"
+                                    />
                                     {player.nickname}
                                 </Badge>
                             ))}
@@ -387,6 +395,14 @@ export function LobbyView({
                     ) : null}
                 </CardContent>
             </Card>
+            {currentPlayer ? (
+                <PlayerCustomization
+                    playerId={currentPlayer.id}
+                    nickname={currentPlayer.nickname}
+                    iconId={currentPlayer.iconId}
+                    avatarColor={currentPlayer.avatarColor}
+                />
+            ) : null}
         </main>
     );
 }

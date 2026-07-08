@@ -1,5 +1,7 @@
 /** @format */
 
+import type { LucideIcon } from "lucide-react";
+import { Circle, Diamond, Square, Triangle } from "lucide-react";
 import type { QuestionSnapshot } from "@/lib/types";
 
 export const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -8,6 +10,38 @@ export const CODE_LENGTH = 6;
 export const STARTING_LIVES = 5;
 export const DEFAULT_QUESTION_TIME = 20;
 export const REVEAL_DELAY_MS = 3000;
+
+export const ANSWER_OPTIONS: {
+    color: string;
+    hoverColor: string;
+    shape: LucideIcon;
+    label: string;
+}[] = [
+    {
+        color: "bg-red-500",
+        hoverColor: "hover:bg-red-600",
+        shape: Circle,
+        label: "Red circle",
+    },
+    {
+        color: "bg-blue-500",
+        hoverColor: "hover:bg-blue-600",
+        shape: Square,
+        label: "Blue square",
+    },
+    {
+        color: "bg-amber-500",
+        hoverColor: "hover:bg-amber-600",
+        shape: Triangle,
+        label: "Amber triangle",
+    },
+    {
+        color: "bg-emerald-500",
+        hoverColor: "hover:bg-emerald-600",
+        shape: Diamond,
+        label: "Green diamond",
+    },
+];
 
 export type GameType = "submarine" | "robot";
 export type GameStatus = "lobby" | "playing" | "won" | "lost";

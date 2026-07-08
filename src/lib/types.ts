@@ -26,6 +26,9 @@ export type GameRecord = {
   questionTimeSeconds: number;
   questionsSnapshot: QuestionSnapshot[];
   createdAt: number;
+  deckTitle?: string | null;
+  deckId?: string | null;
+  endedAt?: number | null;
   host?: { id: string } | null;
 };
 
@@ -33,6 +36,8 @@ export type PlayerRecord = {
   id: string;
   nickname: string;
   joinedAt: number;
+  iconId?: string | null;
+  avatarColor?: string | null;
   user?: { id: string } | null;
 };
 
