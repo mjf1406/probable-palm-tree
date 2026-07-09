@@ -13,7 +13,9 @@ export function downloadBlob(blob: Blob, filename: string): void {
 export function sanitizeFilename(title: string): string {
   const trimmed = title.trim() || "deck";
   return trimmed
-    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
+    .split("")
+    .filter((ch) => ch.charCodeAt(0) >= 32 && !/[<>:"/\\|?*]/.test(ch))
+    .join("")
     .replace(/\s+/g, " ")
     .slice(0, 80)
     .trim();
