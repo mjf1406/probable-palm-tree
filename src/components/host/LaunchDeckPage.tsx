@@ -65,6 +65,7 @@ import {
 } from "@/lib/seaSailors";
 import { ShuffleSettingField } from "@/components/host/ShuffleSettingField";
 import { GoalEstimateTable } from "@/components/host/GoalEstimateTable";
+import { MetersPerCorrectField } from "@/components/host/MetersPerCorrectField";
 import { launchGame } from "@/lib/useHostGameEngine";
 import { cn } from "@/lib/utils";
 
@@ -463,27 +464,12 @@ export function LaunchDeckPage() {
             ) : null}
 
             <div className="space-y-2">
-              <Label htmlFor="meters-per-correct">
-                Distance per correct answer (meters)
-              </Label>
-              <NumberInput
-                id="meters-per-correct"
+              <MetersPerCorrectField
                 value={metersPerCorrect}
-                onChange={(value) => {
-                  if (value.trim() === "") {
-                    setMetersPerCorrect(value);
-                    return;
-                  }
-                  const n = Number(value);
-                  if (!Number.isFinite(n)) {
-                    setMetersPerCorrect(value);
-                    return;
-                  }
-                  setMetersPerCorrect(String(Math.min(n, metersPerCorrectMax)));
-                }}
-                min={MIN_METERS_PER_CORRECT}
-                max={metersPerCorrectMax}
-                step={1}
+                onChange={setMetersPerCorrect}
+                goalMeters={metersPerCorrectGoalMeters}
+                minMeters={MIN_METERS_PER_CORRECT}
+                maxMeters={metersPerCorrectMax}
                 inputClassName="max-w-40"
               />
               {gameType ? (

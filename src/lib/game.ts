@@ -46,6 +46,56 @@ export function getMetersPerCorrectMax(goalMeters: number): number {
     return goalMeters < 10000 ? 1000 : 10000;
 }
 
+export type DistanceUnit = "m" | "km";
+
+export function metersToDisplayUnit(
+    meters: number,
+    unit: DistanceUnit,
+): number {
+    return unit === "km" ? meters / 1_000 : meters;
+}
+
+export function displayUnitToMeters(
+    value: number,
+    unit: DistanceUnit,
+): number {
+    const meters = unit === "km" ? value * 1_000 : value;
+    return Math.round(meters);
+}
+
+export function formatDistanceInUnit(
+    meters: number,
+    unit: DistanceUnit,
+): string {
+    if (unit === "m") {
+        return meters.toLocaleString();
+    }
+
+    const km = meters / 1_000;
+    if (km >= 100) {
+        return km.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    }
+    if (km >= 1) {
+        return km.toLocaleString(undefined, { maximumFractionDigits: 3 });
+    }
+    return km.toLocaleString(undefined, {
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3,
+    });
+}
+
+export function getMetersPerCorrectGoalPercent(
+    metersPerCorrect: unknown,
+    goalMeters: number,
+): number | null {
+    const n =
+        typeof metersPerCorrect === "number"
+            ? metersPerCorrect
+            : Number(metersPerCorrect);
+    if (!Number.isFinite(n) || goalMeters <= 0) return null;
+    return (n / goalMeters) * 100;
+}
+
 export const ANSWER_OPTIONS: {
     color: string;
     hoverColor: string;

@@ -64,6 +64,7 @@ import {
 import type { GameRecord, PlayerRecord, QuestionSnapshot } from "@/lib/types";
 import { resetGameForRematch } from "@/lib/useHostGameEngine";
 import { GoalEstimateTable } from "@/components/host/GoalEstimateTable";
+import { MetersPerCorrectField } from "@/components/host/MetersPerCorrectField";
 import {
     computeGreatCircleDistanceMeters,
     getDefaultSeaRoute,
@@ -531,29 +532,12 @@ export function GameSetupDialog({
                     ) : null}
 
                     <div className="space-y-2">
-                        <Label htmlFor="meters-per-correct">
-                            Distance per correct answer (meters)
-                        </Label>
-                        <NumberInput
-                            id="meters-per-correct"
+                        <MetersPerCorrectField
                             value={metersPerCorrect}
-                            onChange={(value) => {
-                                if (value.trim() === "") {
-                                    setMetersPerCorrect(value);
-                                    return;
-                                }
-                                const n = Number(value);
-                                if (!Number.isFinite(n)) {
-                                    setMetersPerCorrect(value);
-                                    return;
-                                }
-                                setMetersPerCorrect(
-                                    String(Math.min(n, metersPerCorrectMax)),
-                                );
-                            }}
-                            min={MIN_METERS_PER_CORRECT}
-                            max={metersPerCorrectMax}
-                            step={1}
+                            onChange={setMetersPerCorrect}
+                            goalMeters={metersPerCorrectGoalMeters}
+                            minMeters={MIN_METERS_PER_CORRECT}
+                            maxMeters={metersPerCorrectMax}
                         />
                         <GoalEstimateTable
                             gameType={gameType}
