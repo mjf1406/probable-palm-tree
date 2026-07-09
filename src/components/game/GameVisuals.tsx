@@ -1,4 +1,5 @@
 import { Drill, Plane, Rocket, Sailboat, Ship, Trophy, type LucideIcon } from "lucide-react";
+import { GameCodeDisplay } from "@/components/GameCodeDisplay";
 import { GameTimeControls } from "@/components/game/GameTimeControls";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -6,6 +7,7 @@ import {
   formatDistance,
   formatGoalDistance,
   getLevelProgress,
+  getLevelSpans,
   isGameTypeEnabled,
   type GameType,
 } from "@/lib/game";
@@ -20,7 +22,10 @@ type DistanceGameVisualProps = {
   distanceLabel?: string;
   seaRouteDistanceMeters?: number | null;
   className?: string;
+  layout?: "card" | "fullscreen";
   onAdjustGameTime?: (deltaSeconds: number) => void;
+  joinCode?: string;
+  onJoinCodeClick?: () => void;
 };
 
 const VEHICLE_ICONS: Record<GameType, LucideIcon> = {
@@ -50,13 +55,18 @@ export function DistanceGameVisual({
   distanceLabel,
   seaRouteDistanceMeters,
   className,
+  layout = "card",
   onAdjustGameTime,
+  joinCode,
+  onJoinCodeClick,
 }: DistanceGameVisualProps) {
   const config = GAME_LEVELS[gameType];
   const { level, progressPercent } = getLevelProgress(gameType, distanceMeters);
+  const levelSpans = getLevelSpans(gameType);
   const VehicleIcon = VEHICLE_ICONS[gameType];
   const showLevelBands = config.levels.length > 1;
   const isSeaSailors = isGameTypeEnabled(gameType) && gameType === "seaSailors";
+  const isFullscreen = layout === "fullscreen";
 
   const goalDistanceMeters =
     isSeaSailors && seaRouteDistanceMeters
@@ -75,138 +85,284 @@ export function DistanceGameVisual({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-2xl border bg-linear-to-b from-slate-900 via-slate-950 to-black p-6 text-white",
+        "relative overflow-hidden text-white",
+        isFullscreen
+          ? "flex h-full w-full flex-col bg-linear-to-b from-slate-900 via-slate-950 to-black"
+          : "rounded-2xl border bg-linear-to-b from-slate-900 via-slate-950 to-black p-6",
         className,
       )}
     >
-      <div className="relative z-10 space-y-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            {isSeaSailors ? (
-              <>
-                <p className="text-xs font-medium uppercase tracking-wider text-white/60">
-                  Sea progress
-                </p>
-                <p className="font-mono text-3xl font-bold tabular-nums">
-                  {Math.round(goalPercent)}%
-                </p>
-                <p className="mt-1 text-sm text-white/70">
-                  {formatDistance(distanceMeters)} sailed
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-xs font-medium uppercase tracking-wider text-white/60">
-                  {distanceLabel ?? "Distance"}
-                </p>
-                <p className="font-mono text-3xl font-bold tabular-nums">
-                  {formatDistance(distanceMeters)}
-                </p>
-              </>
-            )}
+      {isFullscreen ? (
+        <>
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-center p-4">
+            <div className="pointer-events-auto rounded-lg bg-black/50 px-4 py-2 text-center backdrop-blur-sm">
+              <GameTimeControls
+                timeRemainingSeconds={timeRemainingSeconds}
+                durationSeconds={durationSeconds}
+                onAdjustGameTime={onAdjustGameTime}
+                align="center"
+                size="hero"
+                showProgress={false}
+                labelClassName="text-white/60"
+                timeClassName="text-sky-300"
+                buttonClassName="border-white/20 text-white hover:bg-white/10"
+              />
+              <div className="mt-2 border-t border-white/10 pt-2">
+                {isSeaSailors ? (
+                  <>
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-white/60">
+                      Sea progress
+                    </p>
+                    <p className="font-mono text-xl font-bold tabular-nums">
+                      {Math.round(goalPercent)}%
+                    </p>
+                    <p className="text-xs text-white/70">
+                      {formatDistance(distanceMeters)} sailed
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[10px] font-medium uppercase tracking-wider text-white/60">
+                      {distanceLabel ?? "Distance"}
+                    </p>
+                    <p className="font-mono text-xl font-bold tabular-nums">
+                      {formatDistance(distanceMeters)}
+                    </p>
+                  </>
+                )}
+                {showLevelBands ? (
+                  <p className="mt-0.5 text-xs text-white/70">
+                    Level {level.level}: {level.name}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="relative min-h-0 flex-1 overflow-hidden">
             {showLevelBands ? (
-              <p className="mt-1 text-sm text-white/70">
-                Level {level.level}: {level.name}
-              </p>
+              <div className="absolute inset-0 flex flex-col">
+                {[...levelSpans].reverse().map((spanItem, index) => {
+                  const reverseIndex = levelSpans.length - 1 - index;
+                  const isCurrent = spanItem.level.level === level.level;
+                  return (
+                    <div
+                      key={spanItem.level.level}
+                      style={{ flexGrow: spanItem.spanMeters }}
+                      className={cn(
+                        "relative flex min-h-0 items-center border-b border-white/10 bg-linear-to-r px-3 text-xs",
+                        LEVEL_COLORS[reverseIndex % LEVEL_COLORS.length],
+                        isCurrent && "ring-1 ring-inset ring-white/40",
+                      )}
+                    >
+                      <span className="truncate font-medium">
+                        L{spanItem.level.level} · {spanItem.level.name}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center p-4">
+                <div className="text-center">
+                  <p className="text-xs font-medium uppercase tracking-wider text-white/60">
+                    Route
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white/90">
+                    {config.levels[0]?.name ?? ""}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 border-b-2 border-yellow-300 transition-all duration-700 ease-out"
+              style={{ top: `${Math.max(4, 100 - goalPercent)}%` }}
+            >
+              <div className="absolute -left-1 -top-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-yellow-300 text-slate-900 shadow-lg">
+                <VehicleIcon className="size-4" />
+              </div>
+            </div>
+
+            {bestPercent !== null ? (
+              <div
+                className="pointer-events-none absolute inset-x-8 border-t border-dashed border-amber-300/80"
+                style={{ top: `${Math.max(4, 100 - bestPercent)}%` }}
+              >
+                <span className="absolute -right-1 -top-4 flex items-center gap-1 rounded bg-amber-300/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">
+                  <Trophy className="size-3" />
+                  Best
+                </span>
+              </div>
             ) : null}
           </div>
-          <GameTimeControls
-            timeRemainingSeconds={timeRemainingSeconds}
-            durationSeconds={durationSeconds}
-            onAdjustGameTime={onAdjustGameTime}
-            align="right"
-            labelClassName="text-white/60"
-            timeClassName="text-sky-300"
-            progressClassName="h-1 bg-white/10"
-            buttonClassName="border-white/20 text-white hover:bg-white/10"
-          />
-        </div>
 
-        <div className="relative h-56 overflow-hidden rounded-xl border border-white/10 bg-black/30">
-          {showLevelBands ? (
-            <div className="absolute inset-0 flex flex-col">
-              {[...config.levels].reverse().map((levelItem, index) => {
-                const reverseIndex = config.levels.length - 1 - index;
-                const isCurrent = levelItem.level === level.level;
-                return (
-                  <div
-                    key={levelItem.level}
-                    className={cn(
-                      "relative flex flex-1 items-center border-b border-white/10 bg-linear-to-r px-3 text-xs",
-                      LEVEL_COLORS[reverseIndex % LEVEL_COLORS.length],
-                      isCurrent && "ring-1 ring-inset ring-white/40",
-                    )}
-                  >
-                    <span className="truncate font-medium">
-                      L{levelItem.level} · {levelItem.name}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center p-4">
-              <div className="text-center">
-                <p className="text-xs font-medium uppercase tracking-wider text-white/60">
-                  Route
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white/90">
-                  {config.levels[0]?.name ?? ""}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center p-4">
+            <div className="pointer-events-auto flex flex-col items-center gap-2">
+              {bestDistanceMeters ? (
+                <div className="rounded-lg bg-black/50 px-4 py-2 backdrop-blur-sm">
+                  <p className="flex items-center gap-2 text-sm font-medium text-amber-200/90 sm:text-base">
+                    <Trophy className="size-4 sm:size-5" />
+                    High score to beat: {formatDistance(bestDistanceMeters)}
+                  </p>
+                </div>
+              ) : null}
+
+              {joinCode && onJoinCodeClick ? (
+                <button
+                  type="button"
+                  className="flex flex-col items-center rounded-lg bg-black/50 px-4 py-2 backdrop-blur-sm transition-colors hover:bg-black/60"
+                  onClick={onJoinCodeClick}
+                  aria-label="Open join code and QR code"
+                >
+                  <GameCodeDisplay
+                    code={joinCode}
+                    size="md"
+                    className="text-white"
+                  />
+                  <p className="mt-0.5 text-xs text-white/60">Tap for QR code</p>
+                </button>
+              ) : null}
+
+              <div className="rounded-lg bg-black/50 px-4 py-2 text-center backdrop-blur-sm">
+                <p className="text-sm font-medium text-white/90 sm:text-base">
+                  Goal: {formatGoalDistance(config.goalMeters)}
                 </p>
               </div>
             </div>
-          )}
+          </div>
+        </>
+      ) : (
+        <div className="relative z-10 space-y-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              {isSeaSailors ? (
+                <>
+                  <p className="text-xs font-medium uppercase tracking-wider text-white/60">
+                    Sea progress
+                  </p>
+                  <p className="font-mono text-3xl font-bold tabular-nums">
+                    {Math.round(goalPercent)}%
+                  </p>
+                  <p className="mt-1 text-sm text-white/70">
+                    {formatDistance(distanceMeters)} sailed
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-medium uppercase tracking-wider text-white/60">
+                    {distanceLabel ?? "Distance"}
+                  </p>
+                  <p className="font-mono text-3xl font-bold tabular-nums">
+                    {formatDistance(distanceMeters)}
+                  </p>
+                </>
+              )}
+              {showLevelBands ? (
+                <p className="mt-1 text-sm text-white/70">
+                  Level {level.level}: {level.name}
+                </p>
+              ) : null}
+            </div>
+            <GameTimeControls
+              timeRemainingSeconds={timeRemainingSeconds}
+              durationSeconds={durationSeconds}
+              onAdjustGameTime={onAdjustGameTime}
+              align="right"
+              labelClassName="text-white/60"
+              timeClassName="text-sky-300"
+              progressClassName="h-1 bg-white/10"
+              buttonClassName="border-white/20 text-white hover:bg-white/10"
+            />
+          </div>
 
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 border-b-2 border-yellow-300 transition-all duration-700 ease-out"
-            style={{ top: `${Math.max(4, 100 - goalPercent)}%` }}
-          >
-            <div className="absolute -left-1 -top-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-yellow-300 text-slate-900 shadow-lg">
-              <VehicleIcon className="size-4" />
+          <div className="relative h-56 overflow-hidden rounded-xl border border-white/10 bg-black/30">
+            {showLevelBands ? (
+              <div className="absolute inset-0 flex flex-col">
+                {[...levelSpans].reverse().map((spanItem, index) => {
+                  const reverseIndex = levelSpans.length - 1 - index;
+                  const isCurrent = spanItem.level.level === level.level;
+                  return (
+                    <div
+                      key={spanItem.level.level}
+                      style={{ flexGrow: spanItem.spanMeters }}
+                      className={cn(
+                        "relative flex min-h-0 items-center border-b border-white/10 bg-linear-to-r px-3 text-xs",
+                        LEVEL_COLORS[reverseIndex % LEVEL_COLORS.length],
+                        isCurrent && "ring-1 ring-inset ring-white/40",
+                      )}
+                    >
+                      <span className="truncate font-medium">
+                        L{spanItem.level.level} · {spanItem.level.name}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center p-4">
+                <div className="text-center">
+                  <p className="text-xs font-medium uppercase tracking-wider text-white/60">
+                    Route
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-white/90">
+                    {config.levels[0]?.name ?? ""}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 border-b-2 border-yellow-300 transition-all duration-700 ease-out"
+              style={{ top: `${Math.max(4, 100 - goalPercent)}%` }}
+            >
+              <div className="absolute -left-1 -top-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-yellow-300 text-slate-900 shadow-lg">
+                <VehicleIcon className="size-4" />
+              </div>
+            </div>
+
+            {bestPercent !== null ? (
+              <div
+                className="pointer-events-none absolute inset-x-8 border-t border-dashed border-amber-300/80"
+                style={{ top: `${Math.max(4, 100 - bestPercent)}%` }}
+              >
+                <span className="absolute -right-1 -top-4 flex items-center gap-1 rounded bg-amber-300/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">
+                  <Trophy className="size-3" />
+                  Best
+                </span>
+              </div>
+            ) : null}
+
+            <div className="absolute bottom-3 left-3 rounded-md bg-black/50 px-2 py-1 text-xs text-white/80">
+              Goal: {formatGoalDistance(config.goalMeters)}
             </div>
           </div>
 
-          {bestPercent !== null ? (
-            <div
-              className="pointer-events-none absolute inset-x-8 border-t border-dashed border-amber-300/80"
-              style={{ top: `${Math.max(4, 100 - bestPercent)}%` }}
-            >
-              <span className="absolute -right-1 -top-4 flex items-center gap-1 rounded bg-amber-300/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">
-                <Trophy className="size-3" />
-                Best
-              </span>
+          {showLevelBands ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-white/70">
+                <span>Level progress</span>
+                <span>{Math.round(progressPercent)}%</span>
+              </div>
+              <Progress value={progressPercent} className="h-2 bg-white/10" />
             </div>
           ) : null}
 
-          <div className="absolute bottom-3 left-3 rounded-md bg-black/50 px-2 py-1 text-xs text-white/80">
-            Goal: {formatGoalDistance(config.goalMeters)}
-          </div>
-        </div>
-
-        {showLevelBands ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs text-white/70">
-              <span>Level progress</span>
-              <span>{Math.round(progressPercent)}%</span>
+              <span>Overall goal</span>
+              <span>{Math.round(goalPercent)}%</span>
             </div>
-            <Progress value={progressPercent} className="h-2 bg-white/10" />
+            <Progress value={goalPercent} className="h-1.5 bg-white/10" />
           </div>
-        ) : null}
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-white/70">
-            <span>Overall goal</span>
-            <span>{Math.round(goalPercent)}%</span>
-          </div>
-          <Progress value={goalPercent} className="h-1.5 bg-white/10" />
+          {bestDistanceMeters ? (
+            <p className="text-xs text-amber-200/90">
+              High score to beat: {formatDistance(bestDistanceMeters)}
+            </p>
+          ) : null}
         </div>
-
-        {bestDistanceMeters ? (
-          <p className="text-xs text-amber-200/90">
-            High score to beat: {formatDistance(bestDistanceMeters)}
-          </p>
-        ) : null}
-      </div>
+      )}
     </div>
   );
 }

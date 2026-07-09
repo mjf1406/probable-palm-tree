@@ -26,7 +26,6 @@ export function GamePlayScreen({ code, playerId }: GamePlayScreenProps) {
     myStreak,
     myStreakMultiplier,
     gameTimeRemaining,
-    playerProgress,
   } = useGameSession(code, playerId);
 
   usePlayerGameEngine(
@@ -53,7 +52,6 @@ export function GamePlayScreen({ code, playerId }: GamePlayScreenProps) {
     return (
       <HostPlayScreen
         game={game}
-        playerProgress={playerProgress}
         totalDistance={totalDistance}
         gameTimeRemaining={gameTimeRemaining}
         gameMeta={gameMeta}

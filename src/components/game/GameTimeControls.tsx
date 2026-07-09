@@ -15,7 +15,8 @@ type GameTimeControlsProps = {
   timeClassName?: string;
   showProgress?: boolean;
   progressClassName?: string;
-  align?: "left" | "right";
+  align?: "left" | "right" | "center";
+  size?: "default" | "hero";
   buttonClassName?: string;
 };
 
@@ -29,15 +30,23 @@ export function GameTimeControls({
   showProgress = true,
   progressClassName,
   align = "left",
+  size = "default",
   buttonClassName,
 }: GameTimeControlsProps) {
   const canAdjust = onAdjustGameTime != null;
+  const isHero = size === "hero";
 
   return (
-    <div className={cn(align === "right" && "text-right")}>
+    <div
+      className={cn(
+        align === "right" && "text-right",
+        align === "center" && "text-center",
+      )}
+    >
       <p
         className={cn(
           "text-xs font-medium uppercase tracking-wider text-muted-foreground",
+          isHero && "text-sm",
           labelClassName,
         )}
       >
@@ -47,6 +56,8 @@ export function GameTimeControls({
         className={cn(
           "mt-1 flex items-center gap-2",
           align === "right" && "justify-end",
+          align === "center" && "justify-center",
+          isHero && "gap-3",
         )}
       >
         {canAdjust ? (
@@ -54,16 +65,23 @@ export function GameTimeControls({
             type="button"
             variant="outline"
             size="icon"
-            className={cn("size-8 shrink-0", buttonClassName)}
+            className={cn(
+              "size-8 shrink-0",
+              isHero && "size-10",
+              buttonClassName,
+            )}
             aria-label="Subtract 1 minute"
             onClick={() => onAdjustGameTime(-MINUTE_SECONDS)}
           >
-            <Minus className="size-4" />
+            <Minus className={cn("size-4", isHero && "size-5")} />
           </Button>
         ) : null}
         <p
           className={cn(
-            "font-mono text-3xl font-bold tabular-nums",
+            "font-mono font-bold tabular-nums",
+            isHero
+              ? "text-5xl sm:text-6xl md:text-7xl"
+              : "text-3xl",
             timeClassName,
           )}
         >
@@ -74,11 +92,15 @@ export function GameTimeControls({
             type="button"
             variant="outline"
             size="icon"
-            className={cn("size-8 shrink-0", buttonClassName)}
+            className={cn(
+              "size-8 shrink-0",
+              isHero && "size-10",
+              buttonClassName,
+            )}
             aria-label="Add 1 minute"
             onClick={() => onAdjustGameTime(MINUTE_SECONDS)}
           >
-            <Plus className="size-4" />
+            <Plus className={cn("size-4", isHero && "size-5")} />
           </Button>
         ) : null}
       </div>

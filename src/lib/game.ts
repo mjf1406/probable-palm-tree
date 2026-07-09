@@ -883,6 +883,17 @@ export function getLevelProgress(
     return { level, progressPercent, nextLevel };
 }
 
+export function getLevelSpans(gameType: GameType) {
+    const config = GAME_LEVELS[gameType];
+    return config.levels.map((level, index) => {
+        const start = level.startingDistanceMeters;
+        const end =
+            config.levels[index + 1]?.startingDistanceMeters ??
+            config.goalMeters;
+        return { level, start, end, spanMeters: end - start };
+    });
+}
+
 export function getGameDeadline(
     startedAt: number | undefined | null,
     durationSeconds: number,

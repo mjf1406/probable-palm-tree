@@ -30,6 +30,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { db } from "@/lib/db";
+import { getJoinPageUrl, getJoinUrl } from "@/lib/routes";
 import type { PlayerRecord } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -46,18 +47,6 @@ type LobbyViewProps = {
     isLeaving?: boolean;
     isCancelling?: boolean;
 };
-
-function getOrigin() {
-    return typeof window !== "undefined" ? window.location.origin : "";
-}
-
-function getJoinPageUrl() {
-    return `${getOrigin()}/join`;
-}
-
-function getJoinUrl(code: string) {
-    return `${getJoinPageUrl()}?code=${code}`;
-}
 
 export function LobbyView({
     code,
