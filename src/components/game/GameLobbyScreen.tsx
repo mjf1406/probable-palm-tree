@@ -230,6 +230,13 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
     totalDistance > 0;
 
   if (game.status === "ended") {
+    const myAnswers = currentPlayer
+      ? answers.filter((answer) => answer.player?.id === currentPlayer.id)
+      : [];
+    const myTotal = myAnswers.length;
+    const myCorrect = myAnswers.filter((answer) => answer.isCorrect).length;
+    const myPercent = myTotal > 0 ? (myCorrect / myTotal) * 100 : 0;
+
     return (
       <main className="mx-auto max-w-4xl space-y-6 px-6 py-10">
         <Card className="text-center">
@@ -275,6 +282,15 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
               </div>
             )}
 
+            {currentPlayer ? (
+              <div className="rounded-xl border p-4 text-left">
+                <p className="text-sm text-muted-foreground">Your accuracy</p>
+                <p className="font-mono text-lg font-semibold tabular-nums">
+                  {myCorrect} / {myTotal} correct ({myPercent.toFixed(1)}%)
+                </p>
+              </div>
+            ) : null}
+
             <div className="rounded-xl border p-4 text-left">
               <p className="mb-3 text-sm font-medium">Player contributions</p>
               <ul className="space-y-2">
@@ -307,10 +323,10 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
               <div className="flex flex-col items-center gap-3">
                 <Button onClick={() => setRematchOpen(true)}>Play again</Button>
                 <CancelGameButton
-                  label="End game"
-                  title="End this game?"
+                  label="Terminate session"
+                  title="Terminate this session?"
                   description="This will remove all players and invalidate this join code. This cannot be undone."
-                  confirmLabel="End game"
+                  confirmLabel="Terminate session"
                   isCancelling={isCancelling}
                   onCancel={() =>
                     void cancel(

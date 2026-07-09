@@ -42,8 +42,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { clearStoredPlayerId } from "@/lib/auth";
 import { formatDistance } from "@/lib/game";
 import { joinSearchDefaults } from "@/lib/routes";
-import { adjustGameTime } from "@/lib/useHostGameEngine";
-import { useCancelGame } from "@/lib/useCancelGame";
+import { adjustGameTime, endGame } from "@/lib/useHostGameEngine";
 import { useGameSession } from "@/lib/useGameSession";
 import { useLeaveGame } from "@/lib/useLeaveGame";
 
@@ -138,12 +137,13 @@ export function PlayGameLayout({
 }: PlayGameLayoutProps) {
   const navigate = useNavigate();
   const [squadOpen, setSquadOpen] = useState(false);
-  const { cancel, isCancelling } = useCancelGame();
+  const [isEnding, setIsEnding] = useState(false);
   const {
     upperCode,
     game,
     players,
     gameMeta,
+    answers,
     isLoading,
     isHost,
     currentPlayer,
@@ -194,10 +194,11 @@ export function PlayGameLayout({
 
   const handleEndGame = () => {
     if (!game) return;
-    void cancel(
-      game.id,
-      players.map((player) => player.id),
-    );
+    if (isEnding) return;
+    setIsEnding(true);
+    void endGame(game.id, game, answers).finally(() => {
+      setIsEnding(false);
+    });
   };
 
   const handleAdjustGameTime =
@@ -304,32 +305,32 @@ export function PlayGameLayout({
                     type="button"
                     variant="outline"
                     className="w-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    disabled={isCancelling}
+                    disabled={isEnding}
                   >
-                    {isCancelling ? "Ending..." : "End game"}
+                    {isEnding ? "Ending..." : "End game"}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>End this game?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will immediately remove all players and invalidate
-                      this join code. This cannot be undone.
+                      This will stop the timer immediately and show the final
+                      results screen to everyone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isCancelling}>
+                    <AlertDialogCancel disabled={isEnding}>
                       Keep playing
                     </AlertDialogCancel>
                     <AlertDialogAction
                       variant="destructive"
-                      disabled={isCancelling}
+                      disabled={isEnding}
                       onClick={(event) => {
                         event.preventDefault();
                         handleEndGame();
                       }}
                     >
-                      {isCancelling ? "Ending..." : "End game"}
+                      {isEnding ? "Ending..." : "End game"}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
