@@ -392,6 +392,10 @@ export function isGameTypeEnabled(gameType: GameType): boolean {
     return !DISABLED_GAME_TYPES.includes(gameType);
 }
 
+export function isDescendingDistanceGame(gameType: GameType): boolean {
+    return gameType === "deepDivers" || gameType === "deepDrillers";
+}
+
 export const SELECTABLE_GAME_TYPES = GAME_TYPES.filter((type) =>
     isGameTypeEnabled(type.id),
 );

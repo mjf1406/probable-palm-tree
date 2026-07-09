@@ -8,6 +8,7 @@ import {
   formatGoalDistance,
   getLevelProgress,
   getLevelSpans,
+  isDescendingDistanceGame,
   isGameTypeEnabled,
   type GameType,
 } from "@/lib/game";
@@ -46,6 +47,85 @@ const LEVEL_COLORS = [
   "from-rose-500/80 to-rose-950/80",
 ];
 
+type LevelSpan = ReturnType<typeof getLevelSpans>[number];
+
+function getProgressTopPercent(percent: number, isDescending: boolean) {
+  return Math.max(4, isDescending ? percent : 100 - percent);
+}
+
+function LevelBands({
+  levelSpans,
+  isDescending,
+  currentLevel,
+}: {
+  levelSpans: LevelSpan[];
+  isDescending: boolean;
+  currentLevel: number;
+}) {
+  const orderedSpans = isDescending ? levelSpans : [...levelSpans].reverse();
+
+  return (
+    <div className="absolute inset-0 flex flex-col">
+      {orderedSpans.map((spanItem, index) => {
+        const colorIndex = isDescending
+          ? index
+          : levelSpans.length - 1 - index;
+        const isCurrent = spanItem.level.level === currentLevel;
+        return (
+          <div
+            key={spanItem.level.level}
+            style={{ flexGrow: spanItem.spanMeters }}
+            className={cn(
+              "relative flex min-h-0 items-center border-b border-white/10 bg-linear-to-r px-3 text-xs",
+              LEVEL_COLORS[colorIndex % LEVEL_COLORS.length],
+              isCurrent && "ring-1 ring-inset ring-white/40",
+            )}
+          >
+            <span className="truncate font-medium">
+              L{spanItem.level.level} · {spanItem.level.name}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProgressTrackMarkers({
+  VehicleIcon,
+  vehicleTopPercent,
+  bestTopPercent,
+}: {
+  VehicleIcon: LucideIcon;
+  vehicleTopPercent: number;
+  bestTopPercent: number | null;
+}) {
+  return (
+    <>
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 border-b-2 border-yellow-300 transition-all duration-700 ease-out"
+        style={{ top: `${vehicleTopPercent}%` }}
+      >
+        <div className="absolute -left-1 -top-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-yellow-300 text-slate-900 shadow-lg">
+          <VehicleIcon className="size-4" />
+        </div>
+      </div>
+
+      {bestTopPercent !== null ? (
+        <div
+          className="pointer-events-none absolute inset-x-8 border-t border-dashed border-amber-300/80"
+          style={{ top: `${bestTopPercent}%` }}
+        >
+          <span className="absolute -right-1 -top-4 flex items-center gap-1 rounded bg-amber-300/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">
+            <Trophy className="size-3" />
+            Best
+          </span>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export function DistanceGameVisual({
   gameType,
   distanceMeters,
@@ -66,6 +146,7 @@ export function DistanceGameVisual({
   const VehicleIcon = VEHICLE_ICONS[gameType];
   const showLevelBands = config.levels.length > 1;
   const isSeaSailors = isGameTypeEnabled(gameType) && gameType === "seaSailors";
+  const isDescending = isDescendingDistanceGame(gameType);
   const isFullscreen = layout === "fullscreen";
 
   const goalDistanceMeters =
@@ -80,6 +161,11 @@ export function DistanceGameVisual({
   const bestPercent =
     bestDistanceMeters && bestDistanceMeters > 0
       ? Math.min(100, (bestDistanceMeters / goalDistanceMeters) * 100)
+      : null;
+  const vehicleTopPercent = getProgressTopPercent(goalPercent, isDescending);
+  const bestTopPercent =
+    bestPercent !== null
+      ? getProgressTopPercent(bestPercent, isDescending)
       : null;
 
   return (
@@ -141,27 +227,11 @@ export function DistanceGameVisual({
 
           <div className="relative min-h-0 flex-1 overflow-hidden">
             {showLevelBands ? (
-              <div className="absolute inset-0 flex flex-col">
-                {[...levelSpans].reverse().map((spanItem, index) => {
-                  const reverseIndex = levelSpans.length - 1 - index;
-                  const isCurrent = spanItem.level.level === level.level;
-                  return (
-                    <div
-                      key={spanItem.level.level}
-                      style={{ flexGrow: spanItem.spanMeters }}
-                      className={cn(
-                        "relative flex min-h-0 items-center border-b border-white/10 bg-linear-to-r px-3 text-xs",
-                        LEVEL_COLORS[reverseIndex % LEVEL_COLORS.length],
-                        isCurrent && "ring-1 ring-inset ring-white/40",
-                      )}
-                    >
-                      <span className="truncate font-medium">
-                        L{spanItem.level.level} · {spanItem.level.name}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              <LevelBands
+                levelSpans={levelSpans}
+                isDescending={isDescending}
+                currentLevel={level.level}
+              />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center p-4">
                 <div className="text-center">
@@ -175,26 +245,11 @@ export function DistanceGameVisual({
               </div>
             )}
 
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 border-b-2 border-yellow-300 transition-all duration-700 ease-out"
-              style={{ top: `${Math.max(4, 100 - goalPercent)}%` }}
-            >
-              <div className="absolute -left-1 -top-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-yellow-300 text-slate-900 shadow-lg">
-                <VehicleIcon className="size-4" />
-              </div>
-            </div>
-
-            {bestPercent !== null ? (
-              <div
-                className="pointer-events-none absolute inset-x-8 border-t border-dashed border-amber-300/80"
-                style={{ top: `${Math.max(4, 100 - bestPercent)}%` }}
-              >
-                <span className="absolute -right-1 -top-4 flex items-center gap-1 rounded bg-amber-300/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">
-                  <Trophy className="size-3" />
-                  Best
-                </span>
-              </div>
-            ) : null}
+            <ProgressTrackMarkers
+              VehicleIcon={VehicleIcon}
+              vehicleTopPercent={vehicleTopPercent}
+              bestTopPercent={bestTopPercent}
+            />
           </div>
 
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center p-4">
@@ -278,27 +333,11 @@ export function DistanceGameVisual({
 
           <div className="relative h-56 overflow-hidden rounded-xl border border-white/10 bg-black/30">
             {showLevelBands ? (
-              <div className="absolute inset-0 flex flex-col">
-                {[...levelSpans].reverse().map((spanItem, index) => {
-                  const reverseIndex = levelSpans.length - 1 - index;
-                  const isCurrent = spanItem.level.level === level.level;
-                  return (
-                    <div
-                      key={spanItem.level.level}
-                      style={{ flexGrow: spanItem.spanMeters }}
-                      className={cn(
-                        "relative flex min-h-0 items-center border-b border-white/10 bg-linear-to-r px-3 text-xs",
-                        LEVEL_COLORS[reverseIndex % LEVEL_COLORS.length],
-                        isCurrent && "ring-1 ring-inset ring-white/40",
-                      )}
-                    >
-                      <span className="truncate font-medium">
-                        L{spanItem.level.level} · {spanItem.level.name}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              <LevelBands
+                levelSpans={levelSpans}
+                isDescending={isDescending}
+                currentLevel={level.level}
+              />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center p-4">
                 <div className="text-center">
@@ -312,26 +351,11 @@ export function DistanceGameVisual({
               </div>
             )}
 
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 border-b-2 border-yellow-300 transition-all duration-700 ease-out"
-              style={{ top: `${Math.max(4, 100 - goalPercent)}%` }}
-            >
-              <div className="absolute -left-1 -top-3 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-yellow-300 text-slate-900 shadow-lg">
-                <VehicleIcon className="size-4" />
-              </div>
-            </div>
-
-            {bestPercent !== null ? (
-              <div
-                className="pointer-events-none absolute inset-x-8 border-t border-dashed border-amber-300/80"
-                style={{ top: `${Math.max(4, 100 - bestPercent)}%` }}
-              >
-                <span className="absolute -right-1 -top-4 flex items-center gap-1 rounded bg-amber-300/90 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">
-                  <Trophy className="size-3" />
-                  Best
-                </span>
-              </div>
-            ) : null}
+            <ProgressTrackMarkers
+              VehicleIcon={VehicleIcon}
+              vehicleTopPercent={vehicleTopPercent}
+              bestTopPercent={bestTopPercent}
+            />
 
             <div className="absolute bottom-3 left-3 rounded-md bg-black/50 px-2 py-1 text-xs text-white/80">
               Goal: {formatGoalDistance(config.goalMeters)}
