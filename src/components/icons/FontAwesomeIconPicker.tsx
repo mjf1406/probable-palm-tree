@@ -167,17 +167,12 @@ function LazyIconCell({ parsedIcon, isSelected, onSelect }: LazyIconCellProps) {
         if (entry?.isIntersecting && !hasStartedLoadingRef.current) {
           hasStartedLoadingRef.current = true;
           setLoadState({ status: "loading", icon: null });
-          resolveIconId(parsedIcon.id)
-            .then((icon) => {
-              if (icon) {
-                setLoadState({ status: "loaded", icon });
-              } else {
-                setLoadState({ status: "error", icon: null });
-              }
-            })
-            .catch(() => {
-              setLoadState({ status: "error", icon: null });
-            });
+          const icon = resolveIconId(parsedIcon.id);
+          if (icon) {
+            setLoadState({ status: "loaded", icon });
+          } else {
+            setLoadState({ status: "error", icon: null });
+          }
         }
       },
       { rootMargin: "50px" }
@@ -356,11 +351,13 @@ export function FontAwesomeIconPicker({
   const rowSize = 90; // Increased to accommodate larger icon + text
   const rowCount = Math.ceil(filteredIcons.length / cols);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- directDomUpdates makes this Compiler-safe; lint still flags the hook
   const rowVirtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => gridViewportEl,
     estimateSize: () => rowSize,
     overscan: 10,
+    directDomUpdates: true,
   });
 
   React.useEffect(() => {
@@ -530,10 +527,7 @@ export function FontAwesomeIconPicker({
                   Initializing…
                 </div>
               ) : (
-                <div
-                  className="relative"
-                  style={{ height: rowVirtualizer.getTotalSize() }}
-                >
+                <div ref={rowVirtualizer.containerRef} className="relative w-full">
                   {rowVirtualizer.getVirtualItems().map((row) => {
                     const start = row.index * cols;
                     const end = Math.min(start + cols, filteredIcons.length);
@@ -543,7 +537,6 @@ export function FontAwesomeIconPicker({
                       <div
                         key={row.key}
                         className="absolute left-0 top-0 w-full"
-                        style={{ transform: `translateY(${row.start}px)` }}
                       >
                         <div
                           className="grid gap-2"

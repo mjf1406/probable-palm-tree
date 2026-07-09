@@ -1,6 +1,5 @@
 /** @format */
 
-import { useState, useEffect } from "react";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { resolveIconId } from "@/lib/fontawesome-icon-catalog";
@@ -19,21 +18,7 @@ export function FontAwesomeIconFromId({
     style,
     fallback,
 }: FontAwesomeIconFromIdProps) {
-    const [def, setDef] = useState<IconDefinition | null>(null);
-
-    useEffect(() => {
-        if (!id) {
-            setDef(null);
-            return;
-        }
-        let cancelled = false;
-        resolveIconId(id).then((resolved) => {
-            if (!cancelled) setDef(resolved);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [id]);
+    const def: IconDefinition | null = id ? resolveIconId(id) : null;
 
     if (!id) return <>{fallback}</>;
     if (!def) return <>{fallback}</>;

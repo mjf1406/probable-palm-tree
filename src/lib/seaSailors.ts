@@ -101,6 +101,34 @@ export function seaRouteLabel(ocean: SeaOcean, from: SeaCity, to: SeaCity): stri
   return `${from.name} → ${to.name} (${ocean})`;
 }
 
+export function clampSeaRoute(
+  ocean: SeaOcean,
+  fromCityId: SeaCityId,
+  toCityId: SeaCityId,
+): { fromCityId: SeaCityId; toCityId: SeaCityId } {
+  const cities = getSeaCitiesForOcean(ocean);
+  if (cities.length === 0) {
+    return { fromCityId, toCityId };
+  }
+
+  const fromStillInOcean = cities.some((city) => city.id === fromCityId);
+  const toStillInOcean = cities.some((city) => city.id === toCityId);
+
+  const nextFrom = fromStillInOcean ? fromCityId : cities[0]!.id;
+  let nextTo = toStillInOcean
+    ? toCityId
+    : (cities[1]?.id ?? cities[0]!.id);
+
+  if (nextFrom === nextTo) {
+    const alternative = cities.find((city) => city.id !== nextFrom);
+    if (alternative) {
+      nextTo = alternative.id;
+    }
+  }
+
+  return { fromCityId: nextFrom, toCityId: nextTo };
+}
+
 export function getDefaultSeaRoute() {
   // For UI defaults we use a famous route and mirror the original plan’s goal baseline.
   const ocean: SeaOcean = "Pacific";

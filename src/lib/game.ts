@@ -488,6 +488,10 @@ export function getLevelForDistance(
     return current;
 }
 
+export function getLevelName(gameType: GameType, distanceMeters: number) {
+    return getLevelForDistance(gameType, distanceMeters).name;
+}
+
 export function getLevelProgress(
     gameType: GameType,
     meters: number,

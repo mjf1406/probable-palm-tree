@@ -16,7 +16,7 @@ export function iconIdFromDefinition(icon: IconDefinition): string {
   return `${icon.prefix}:${icon.iconName}`;
 }
 
-export async function resolveIconId(id: string): Promise<IconDefinition | null> {
+export function resolveIconId(id: string): IconDefinition | null {
   const cached = iconCache.get(id);
   if (cached) return cached;
 

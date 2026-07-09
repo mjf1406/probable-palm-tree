@@ -7,10 +7,7 @@ import {
   GameHostPresence,
   GamePlayerPresence,
 } from "@/components/game/GamePresence";
-import {
-  DistanceGameVisual,
-  getLevelName,
-} from "@/components/game/GameVisuals";
+import { DistanceGameVisual } from "@/components/game/GameVisuals";
 import { GameSetupDialog } from "@/components/host/GameSetupDialog";
 import { CancelGameButton } from "@/components/game/CancelGameButton";
 import { SaveScoreForm } from "@/components/game/SaveScoreForm";
@@ -28,6 +25,7 @@ import {
   computePlayerDistance,
   formatCode,
   formatDistance,
+  getLevelName,
 } from "@/lib/game";
 import { joinSearchDefaults } from "@/lib/routes";
 import { useGameSession } from "@/lib/useGameSession";

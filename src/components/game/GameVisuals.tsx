@@ -5,7 +5,6 @@ import {
   GAME_LEVELS,
   formatDistance,
   formatGoalDistance,
-  getLevelForDistance,
   getLevelProgress,
   type GameType,
 } from "@/lib/game";
@@ -208,8 +207,4 @@ export function DistanceGameVisual({
       </div>
     </div>
   );
-}
-
-export function getLevelName(gameType: GameType, distanceMeters: number) {
-  return getLevelForDistance(gameType, distanceMeters).name;
 }

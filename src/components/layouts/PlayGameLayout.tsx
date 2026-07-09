@@ -39,7 +39,6 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { clearStoredPlayerId } from "@/lib/auth";
 import { formatDistance } from "@/lib/game";
 import { joinSearchDefaults } from "@/lib/routes";
@@ -138,7 +137,6 @@ export function PlayGameLayout({
   children,
 }: PlayGameLayoutProps) {
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
   const [squadOpen, setSquadOpen] = useState(false);
   const { cancel, isCancelling } = useCancelGame();
   const {
@@ -154,12 +152,6 @@ export function PlayGameLayout({
     playerProgress,
   } = useGameSession(code, playerId);
   const { leave, isLeaving } = useLeaveGame(code);
-
-  useEffect(() => {
-    if (!isMobile) {
-      setSquadOpen(true);
-    }
-  }, [isMobile]);
 
   useEffect(() => {
     if (isLoading || isHost) return;

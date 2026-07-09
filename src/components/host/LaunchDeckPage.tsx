@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { Drill, Plane, Rocket, Sailboat, Ship, type LucideIcon } from "lucide-react";
 import { DifficultyBadge } from "@/components/game/DifficultyBadge";
@@ -24,7 +24,6 @@ import { db } from "@/lib/db";
 import {
   DEFAULT_DURATION_MINUTES,
   DEFAULT_METERS_PER_CORRECT,
-  DEFAULT_QUESTION_TIME,
   DURATION_PRESETS,
   DURATION_STEP_MINUTES,
   GAME_TYPES,
@@ -54,6 +53,7 @@ import {
   type ShuffleMode,
 } from "@/lib/game";
 import {
+  clampSeaRoute,
   computeGreatCircleDistanceMeters,
   getDefaultSeaRoute,
   getSeaCitiesForOcean,
@@ -71,6 +71,25 @@ import { cn } from "@/lib/utils";
 
 type LaunchStep = "gameType" | "settings";
 
+type DeckRecord = {
+  id: string;
+  title: string;
+  description?: string | null;
+  isBuiltIn?: boolean | null;
+  answerShuffleMode?: ShuffleMode | string | null;
+  questionShuffleMode?: ShuffleMode | string | null;
+  answerShuffleScope?: string | null;
+  questionShuffleScope?: string | null;
+  questionTimeSeconds?: number | null;
+  questions: {
+    text: string;
+    options: unknown;
+    correctIndex: number;
+    order: number;
+    questionType?: unknown;
+  }[];
+};
+
 const GAME_ICONS: Record<GameType, LucideIcon> = {
   deepDivers: Ship,
   deepDrillers: Drill,
@@ -87,35 +106,6 @@ export function LaunchDeckPage() {
   const { user } = db.useAuth();
   const [step, setStep] = useState<LaunchStep>("gameType");
   const [gameType, setGameType] = useState<GameType | null>(null);
-  const [answerShuffleMode, setAnswerShuffleMode] = useState<ShuffleMode>(
-    "eachRepetition",
-  );
-  const [questionShuffleMode, setQuestionShuffleMode] = useState<ShuffleMode>(
-    "eachRepetition",
-  );
-  const [answerShuffleScope, setAnswerShuffleScope] =
-    useState<SettingScope>("everyone");
-  const [questionShuffleScope, setQuestionShuffleScope] =
-    useState<SettingScope>("everyone");
-  const [questionTime, setQuestionTime] = useState(
-    String(DEFAULT_QUESTION_TIME),
-  );
-  const [durationMinutes, setDurationMinutes] = useState(
-    String(DEFAULT_DURATION_MINUTES),
-  );
-  const [metersPerCorrect, setMetersPerCorrect] = useState(
-    String(DEFAULT_METERS_PER_CORRECT),
-  );
-
-  const [seaOcean, setSeaOcean] = useState<SeaOcean>(DEFAULT_SEA_ROUTE.ocean);
-  const [seaFromCityId, setSeaFromCityId] = useState<SeaCityId>(
-    DEFAULT_SEA_ROUTE.fromCityId,
-  );
-  const [seaToCityId, setSeaToCityId] = useState<SeaCityId>(
-    DEFAULT_SEA_ROUTE.toCityId,
-  );
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { isLoading, data, error } = db.useQuery({
     decks: {
@@ -126,118 +116,6 @@ export function LaunchDeckPage() {
 
   const deck = data?.decks?.[0];
   const questions = deck?.questions ?? [];
-  const seaFromCity = getSeaCityById(seaFromCityId);
-  const seaToCity = getSeaCityById(seaToCityId);
-  const seaRouteDistanceMeters =
-    seaFromCity && seaToCity
-      ? computeGreatCircleDistanceMeters(seaFromCity, seaToCity)
-      : null;
-  const seaRouteKeyValue =
-    gameType === "seaSailors"
-      ? seaRouteKey(seaOcean, seaFromCityId, seaToCityId)
-      : null;
-
-  const isSeaSailors = gameType === "seaSailors";
-  const seaRouteReady =
-    !isSeaSailors ||
-    (seaRouteDistanceMeters !== null && seaFromCityId !== seaToCityId);
-
-  const baseGoalMeters = gameType ? GAME_LEVELS[gameType].goalMeters : 10000;
-  const metersPerCorrectGoalMeters =
-    gameType === "seaSailors"
-      ? seaRouteDistanceMeters ?? baseGoalMeters
-      : baseGoalMeters;
-  const metersPerCorrectMax =
-    getMetersPerCorrectMax(metersPerCorrectGoalMeters);
-
-  const canLaunch = Boolean(
-    deck && questions.length > 0 && gameType && user && seaRouteReady,
-  );
-
-  useEffect(() => {
-    if (gameType !== "seaSailors") return;
-
-    const cities = getSeaCitiesForOcean(seaOcean);
-    if (cities.length === 0) return;
-
-    setSeaFromCityId((prev) => {
-      const stillInOcean = cities.some((c) => c.id === prev);
-      return stillInOcean ? prev : cities[0]!.id;
-    });
-    setSeaToCityId((prev) => {
-      const stillInOcean = cities.some((c) => c.id === prev);
-      return stillInOcean ? prev : cities[1]?.id ?? cities[0]!.id;
-    });
-  }, [gameType, seaOcean]);
-
-  useEffect(() => {
-    if (gameType !== "seaSailors") return;
-    if (seaToCityId !== seaFromCityId) return;
-
-    const cities = getSeaCitiesForOcean(seaOcean);
-    const next = cities.find((c) => c.id !== seaFromCityId)?.id;
-    if (next) setSeaToCityId(next);
-  }, [gameType, seaOcean, seaFromCityId, seaToCityId]);
-
-  useEffect(() => {
-    if (!deck) return;
-    setAnswerShuffleMode(parseShuffleMode(deck.answerShuffleMode));
-    setQuestionShuffleMode(parseShuffleMode(deck.questionShuffleMode));
-    setAnswerShuffleScope(parseSettingScope(deck.answerShuffleScope));
-    setQuestionShuffleScope(parseSettingScope(deck.questionShuffleScope));
-    setQuestionTime(String(parseQuestionTimeSeconds(deck.questionTimeSeconds)));
-  }, [deck]);
-
-  const handleLaunch = async () => {
-    if (!user || !deck || !gameType || questions.length === 0) return;
-
-    setIsSubmitting(true);
-    try {
-      const shuffleSettings = {
-        answerShuffleMode,
-        questionShuffleMode,
-        answerShuffleScope,
-        questionShuffleScope,
-      };
-      const snapshot = buildGameQuestionsSnapshot(
-        questions as {
-          text: string;
-          options: unknown;
-          correctIndex: number;
-          order: number;
-          questionType?: unknown;
-        }[],
-        shuffleSettings,
-      );
-      const code = generateJoinCode();
-      await launchGame({
-        hostId: user.id,
-        code,
-        gameType,
-        questionsSnapshot: snapshot,
-        questionTimeSeconds: parseQuestionTimeSeconds(questionTime),
-        durationSeconds: durationMinutesToSeconds(durationMinutes),
-        metersPerCorrect: parseMetersPerCorrect(metersPerCorrect),
-        deckTitle: deck.title,
-        deckId: deck.id,
-        ...shuffleSettings,
-        ...(gameType === "seaSailors" &&
-        seaRouteDistanceMeters !== null &&
-        seaRouteKeyValue
-          ? {
-              seaOcean,
-              seaFromCity: seaFromCityId,
-              seaToCity: seaToCityId,
-              seaRouteDistanceMeters,
-              seaRouteKey: seaRouteKeyValue,
-            }
-          : {}),
-      });
-      await navigate({ to: "/g/$code", params: { code } });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -363,189 +241,332 @@ export function LaunchDeckPage() {
             </Button>
           </CardContent>
         </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Game settings</CardTitle>
-            <CardDescription>
-              These apply only to this game and won&apos;t change your saved deck
-              defaults.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <ShuffleSettingField
-              label="Answer option order"
-              mode={answerShuffleMode}
-              scope={answerShuffleScope}
-              onModeChange={setAnswerShuffleMode}
-              onScopeChange={setAnswerShuffleScope}
-            />
-
-            <ShuffleSettingField
-              label="Question order"
-              mode={questionShuffleMode}
-              scope={questionShuffleScope}
-              onModeChange={setQuestionShuffleMode}
-              onScopeChange={setQuestionShuffleScope}
-            />
-
-            {gameType === "seaSailors" ? (
-              <div className="space-y-3 rounded-xl border border-border/50 bg-card p-4">
-                <div className="space-y-2">
-                  <Label>Ocean</Label>
-                  <Select
-                    value={seaOcean}
-                    onValueChange={(value) =>
-                      setSeaOcean(value as SeaOcean)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an ocean" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getSeaOceans().map((ocean) => (
-                        <SelectItem key={ocean} value={ocean}>
-                          {ocean}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Departure city</Label>
-                  <Select
-                    value={seaFromCityId}
-                    onValueChange={(value) => setSeaFromCityId(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a departure city" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getSeaCitiesForOcean(seaOcean).map((city) => (
-                        <SelectItem key={city.id} value={city.id}>
-                          {city.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Destination city</Label>
-                  <Select
-                    value={seaToCityId}
-                    onValueChange={(value) => setSeaToCityId(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a destination city" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {getSeaCitiesForOcean(seaOcean)
-                        .filter((city) => city.id !== seaFromCityId)
-                        .map((city) => (
-                          <SelectItem key={city.id} value={city.id}>
-                            {city.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="text-sm text-muted-foreground">
-                  Route goal:{" "}
-                  <span className="font-mono text-foreground">
-                    {seaRouteDistanceMeters !== null
-                      ? formatGoalDistance(seaRouteDistanceMeters)
-                      : "--"}
-                  </span>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="space-y-2">
-              <MetersPerCorrectField
-                value={metersPerCorrect}
-                onChange={setMetersPerCorrect}
-                goalMeters={metersPerCorrectGoalMeters}
-                minMeters={MIN_METERS_PER_CORRECT}
-                maxMeters={metersPerCorrectMax}
-                inputClassName="max-w-40"
-              />
-              {gameType ? (
-                <GoalEstimateTable
-                  gameType={gameType}
-                  metersPerCorrect={metersPerCorrect}
-                  goalMetersOverride={
-                    gameType === "seaSailors" ? seaRouteDistanceMeters : undefined
-                  }
-                />
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="question-time">Seconds per question</Label>
-              <NumberInput
-                id="question-time"
-                value={questionTime}
-                onChange={setQuestionTime}
-                min={MIN_QUESTION_TIME}
-                max={MAX_QUESTION_TIME}
-                step={QUESTION_TIME_STEP}
-                ctrlStep={QUESTION_TIME_CTRL_STEP}
-                shiftStep={QUESTION_TIME_SHIFT_STEP}
-                ctrlShiftStep={QUESTION_TIME_CTRL_SHIFT_STEP}
-                inputClassName="max-w-40"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <Label htmlFor="game-duration">Game duration (minutes)</Label>
-              <NumberInput
-                id="game-duration"
-                value={durationMinutes}
-                onChange={setDurationMinutes}
-                min={MIN_DURATION_MINUTES}
-                max={MAX_DURATION_MINUTES}
-                step={DURATION_STEP_MINUTES}
-                inputClassName="max-w-40"
-              />
-              <div className="flex flex-wrap gap-2">
-                {DURATION_PRESETS.map((preset) => (
-                  <Button
-                    key={preset.minutes}
-                    type="button"
-                    size="sm"
-                    variant={
-                      parseDurationMinutes(durationMinutes) === preset.minutes
-                        ? "default"
-                        : "outline"
-                    }
-                    onClick={() =>
-                      setDurationMinutes(String(preset.minutes))
-                    }
-                  >
-                    {preset.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={() => setStep("gameType")}>
-                Back
-              </Button>
-              <Button
-                size="lg"
-                disabled={!canLaunch || isSubmitting}
-                onClick={() => void handleLaunch()}
-              >
-                {isSubmitting ? "Launching..." : "Launch game"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      ) : gameType ? (
+        <LaunchDeckSettingsStep
+          key={deck.id}
+          deck={deck}
+          gameType={gameType}
+          userId={user?.id}
+          onBack={() => setStep("gameType")}
+          onLaunched={(code) => void navigate({ to: "/g/$code", params: { code } })}
+        />
+      ) : null}
     </main>
+  );
+}
+
+type LaunchDeckSettingsStepProps = {
+  deck: DeckRecord;
+  gameType: GameType;
+  userId: string | undefined;
+  onBack: () => void;
+  onLaunched: (code: string) => void;
+};
+
+function LaunchDeckSettingsStep({
+  deck,
+  gameType,
+  userId,
+  onBack,
+  onLaunched,
+}: LaunchDeckSettingsStepProps) {
+  const questions = deck.questions;
+  const [answerShuffleMode, setAnswerShuffleMode] = useState<ShuffleMode>(
+    parseShuffleMode(deck.answerShuffleMode),
+  );
+  const [questionShuffleMode, setQuestionShuffleMode] = useState<ShuffleMode>(
+    parseShuffleMode(deck.questionShuffleMode),
+  );
+  const [answerShuffleScope, setAnswerShuffleScope] = useState<SettingScope>(
+    parseSettingScope(deck.answerShuffleScope),
+  );
+  const [questionShuffleScope, setQuestionShuffleScope] =
+    useState<SettingScope>(parseSettingScope(deck.questionShuffleScope));
+  const [questionTime, setQuestionTime] = useState(
+    String(parseQuestionTimeSeconds(deck.questionTimeSeconds)),
+  );
+  const [durationMinutes, setDurationMinutes] = useState(
+    String(DEFAULT_DURATION_MINUTES),
+  );
+  const [metersPerCorrect, setMetersPerCorrect] = useState(
+    String(DEFAULT_METERS_PER_CORRECT),
+  );
+  const [seaOcean, setSeaOcean] = useState<SeaOcean>(DEFAULT_SEA_ROUTE.ocean);
+  const [seaFromCityId, setSeaFromCityId] = useState<SeaCityId>(
+    DEFAULT_SEA_ROUTE.fromCityId,
+  );
+  const [seaToCityId, setSeaToCityId] = useState<SeaCityId>(
+    DEFAULT_SEA_ROUTE.toCityId,
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const seaFromCity = getSeaCityById(seaFromCityId);
+  const seaToCity = getSeaCityById(seaToCityId);
+  const seaRouteDistanceMeters =
+    seaFromCity && seaToCity
+      ? computeGreatCircleDistanceMeters(seaFromCity, seaToCity)
+      : null;
+  const seaRouteKeyValue =
+    gameType === "seaSailors"
+      ? seaRouteKey(seaOcean, seaFromCityId, seaToCityId)
+      : null;
+
+  const isSeaSailors = gameType === "seaSailors";
+  const seaRouteReady =
+    !isSeaSailors ||
+    (seaRouteDistanceMeters !== null && seaFromCityId !== seaToCityId);
+
+  const baseGoalMeters = GAME_LEVELS[gameType].goalMeters;
+  const metersPerCorrectGoalMeters =
+    gameType === "seaSailors"
+      ? seaRouteDistanceMeters ?? baseGoalMeters
+      : baseGoalMeters;
+  const metersPerCorrectMax =
+    getMetersPerCorrectMax(metersPerCorrectGoalMeters);
+
+  const canLaunch = Boolean(
+    questions.length > 0 && userId && seaRouteReady,
+  );
+
+  const handleSeaOceanChange = (ocean: SeaOcean) => {
+    const clamped = clampSeaRoute(ocean, seaFromCityId, seaToCityId);
+    setSeaOcean(ocean);
+    setSeaFromCityId(clamped.fromCityId);
+    setSeaToCityId(clamped.toCityId);
+  };
+
+  const handleSeaFromCityChange = (fromCityId: SeaCityId) => {
+    setSeaFromCityId(fromCityId);
+    if (seaToCityId === fromCityId) {
+      const cities = getSeaCitiesForOcean(seaOcean);
+      const next = cities.find((city) => city.id !== fromCityId)?.id;
+      if (next) {
+        setSeaToCityId(next);
+      }
+    }
+  };
+
+  const handleLaunch = async () => {
+    if (!userId || questions.length === 0) return;
+
+    setIsSubmitting(true);
+    try {
+      const shuffleSettings = {
+        answerShuffleMode,
+        questionShuffleMode,
+        answerShuffleScope,
+        questionShuffleScope,
+      };
+      const snapshot = buildGameQuestionsSnapshot(questions, shuffleSettings);
+      const code = generateJoinCode();
+      await launchGame({
+        hostId: userId,
+        code,
+        gameType,
+        questionsSnapshot: snapshot,
+        questionTimeSeconds: parseQuestionTimeSeconds(questionTime),
+        durationSeconds: durationMinutesToSeconds(durationMinutes),
+        metersPerCorrect: parseMetersPerCorrect(metersPerCorrect),
+        deckTitle: deck.title,
+        deckId: deck.id,
+        ...shuffleSettings,
+        ...(gameType === "seaSailors" &&
+        seaRouteDistanceMeters !== null &&
+        seaRouteKeyValue
+          ? {
+              seaOcean,
+              seaFromCity: seaFromCityId,
+              seaToCity: seaToCityId,
+              seaRouteDistanceMeters,
+              seaRouteKey: seaRouteKeyValue,
+            }
+          : {}),
+      });
+      onLaunched(code);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Game settings</CardTitle>
+        <CardDescription>
+          These apply only to this game and won&apos;t change your saved deck
+          defaults.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <ShuffleSettingField
+          label="Answer option order"
+          mode={answerShuffleMode}
+          scope={answerShuffleScope}
+          onModeChange={setAnswerShuffleMode}
+          onScopeChange={setAnswerShuffleScope}
+        />
+
+        <ShuffleSettingField
+          label="Question order"
+          mode={questionShuffleMode}
+          scope={questionShuffleScope}
+          onModeChange={setQuestionShuffleMode}
+          onScopeChange={setQuestionShuffleScope}
+        />
+
+        {gameType === "seaSailors" ? (
+          <div className="space-y-3 rounded-xl border border-border/50 bg-card p-4">
+            <div className="space-y-2">
+              <Label>Ocean</Label>
+              <Select
+                value={seaOcean}
+                onValueChange={(value) =>
+                  handleSeaOceanChange(value as SeaOcean)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an ocean" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getSeaOceans().map((ocean) => (
+                    <SelectItem key={ocean} value={ocean}>
+                      {ocean}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Departure city</Label>
+              <Select
+                value={seaFromCityId}
+                onValueChange={handleSeaFromCityChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a departure city" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getSeaCitiesForOcean(seaOcean).map((city) => (
+                    <SelectItem key={city.id} value={city.id}>
+                      {city.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Destination city</Label>
+              <Select
+                value={seaToCityId}
+                onValueChange={(value) => setSeaToCityId(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a destination city" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getSeaCitiesForOcean(seaOcean)
+                    .filter((city) => city.id !== seaFromCityId)
+                    .map((city) => (
+                      <SelectItem key={city.id} value={city.id}>
+                        {city.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              Route goal:{" "}
+              <span className="font-mono text-foreground">
+                {seaRouteDistanceMeters !== null
+                  ? formatGoalDistance(seaRouteDistanceMeters)
+                  : "--"}
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="space-y-2">
+          <MetersPerCorrectField
+            value={metersPerCorrect}
+            onChange={setMetersPerCorrect}
+            goalMeters={metersPerCorrectGoalMeters}
+            minMeters={MIN_METERS_PER_CORRECT}
+            maxMeters={metersPerCorrectMax}
+            inputClassName="max-w-40"
+          />
+          <GoalEstimateTable
+            gameType={gameType}
+            metersPerCorrect={metersPerCorrect}
+            goalMetersOverride={
+              gameType === "seaSailors" ? seaRouteDistanceMeters : undefined
+            }
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="question-time">Seconds per question</Label>
+          <NumberInput
+            id="question-time"
+            value={questionTime}
+            onChange={setQuestionTime}
+            min={MIN_QUESTION_TIME}
+            max={MAX_QUESTION_TIME}
+            step={QUESTION_TIME_STEP}
+            ctrlStep={QUESTION_TIME_CTRL_STEP}
+            shiftStep={QUESTION_TIME_SHIFT_STEP}
+            ctrlShiftStep={QUESTION_TIME_CTRL_SHIFT_STEP}
+            inputClassName="max-w-40"
+          />
+        </div>
+
+        <div className="space-y-3">
+          <Label htmlFor="game-duration">Game duration (minutes)</Label>
+          <NumberInput
+            id="game-duration"
+            value={durationMinutes}
+            onChange={setDurationMinutes}
+            min={MIN_DURATION_MINUTES}
+            max={MAX_DURATION_MINUTES}
+            step={DURATION_STEP_MINUTES}
+            inputClassName="max-w-40"
+          />
+          <div className="flex flex-wrap gap-2">
+            {DURATION_PRESETS.map((preset) => (
+              <Button
+                key={preset.minutes}
+                type="button"
+                size="sm"
+                variant={
+                  parseDurationMinutes(durationMinutes) === preset.minutes
+                    ? "default"
+                    : "outline"
+                }
+                onClick={() =>
+                  setDurationMinutes(String(preset.minutes))
+                }
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" onClick={onBack}>
+            Back
+          </Button>
+          <Button
+            size="lg"
+            disabled={!canLaunch || isSubmitting}
+            onClick={() => void handleLaunch()}
+          >
+            {isSubmitting ? "Launching..." : "Launch game"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

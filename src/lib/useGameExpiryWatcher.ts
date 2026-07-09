@@ -65,8 +65,10 @@ export function useGameExpiryWatcher(
   const gameRef = useRef(game);
   const answersRef = useRef(answers);
 
-  gameRef.current = game;
-  answersRef.current = answers;
+  useEffect(() => {
+    gameRef.current = game;
+    answersRef.current = answers;
+  });
 
   const tryEndIfExpired = useCallback(
     (now = Date.now()) => {
@@ -99,15 +101,7 @@ export function useGameExpiryWatcher(
     }, msUntilEnd);
 
     return () => window.clearTimeout(timeout);
-  }, [
-    enabled,
-    game?.durationSeconds,
-    game?.endsAt,
-    game?.id,
-    game?.startedAt,
-    game?.status,
-    tryEndIfExpired,
-  ]);
+  }, [enabled, game, tryEndIfExpired]);
 
   return tryEndIfExpired;
 }

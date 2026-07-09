@@ -69,8 +69,8 @@ type DeckWithQuestions = {
   }[];
 };
 
-function formatRelativeTime(timestamp: number) {
-  const diffMs = Date.now() - timestamp;
+function formatRelativeTime(timestamp: number, now: number) {
+  const diffMs = now - timestamp;
   const minutes = Math.floor(diffMs / 60000);
   if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes}m ago`;
@@ -233,8 +233,10 @@ function DeckCard({ deck }: { deck: DeckWithQuestions }) {
 
 function ActiveGameCard({
   game,
+  now,
 }: {
   game: GameRecord & { players?: { id: string }[] };
+  now: number;
 }) {
   const isActive = game.status === "lobby" || game.status === "playing";
   const playerCount = game.players?.length ?? 0;
@@ -258,8 +260,8 @@ function ActiveGameCard({
       <CardContent className="pb-2">
         <p className="text-xs text-muted-foreground">
           {game.endedAt
-            ? `Ended ${formatRelativeTime(game.endedAt)}`
-            : `Started ${formatRelativeTime(game.createdAt)}`}
+            ? `Ended ${formatRelativeTime(game.endedAt, now)}`
+            : `Started ${formatRelativeTime(game.createdAt, now)}`}
         </p>
       </CardContent>
       <CardFooter>
@@ -279,6 +281,14 @@ export function HostDashboard() {
   const { user } = db.useAuth();
   const [newTitle, setNewTitle] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const { data, isLoading: decksLoading } = db.useQuery(
     user
@@ -308,14 +318,14 @@ export function HostDashboard() {
     const games = (data?.$users?.[0]?.hostedGames ?? []) as (GameRecord & {
       players?: { id: string }[];
     })[];
-    const cutoff = Date.now() - RECENT_GAME_MS;
+    const cutoff = now - RECENT_GAME_MS;
     return games.filter(
       (game) =>
         game.status === "lobby" ||
         game.status === "playing" ||
         (game.endedAt != null && game.endedAt >= cutoff),
     );
-  }, [data?.$users]);
+  }, [data?.$users, now]);
 
   const endingGameIdsRef = useRef(new Set<string>());
 
@@ -442,7 +452,7 @@ export function HostDashboard() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {activeGames.map((game) => (
-              <ActiveGameCard key={game.id} game={game} />
+              <ActiveGameCard key={game.id} game={game} now={now} />
             ))}
           </div>
         </section>
