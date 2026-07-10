@@ -10,15 +10,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Credenza,
+  CredenzaClose,
+  CredenzaContent,
+  CredenzaDescription,
+  CredenzaFooter,
+  CredenzaHeader,
+  CredenzaTitle,
+} from "@/components/ui/credenza";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -141,28 +140,31 @@ function ScoreEntryCard({
         </CardContent>
       </Card>
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this score?</AlertDialogTitle>
-            <AlertDialogDescription>
+      <Credenza open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <CredenzaContent>
+          <CredenzaHeader>
+            <CredenzaTitle>Delete this score?</CredenzaTitle>
+            <CredenzaDescription>
               This removes &quot;{entry.displayName}&quot; from My high scores.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            </CredenzaDescription>
+          </CredenzaHeader>
+          <CredenzaFooter>
+            <CredenzaClose asChild>
+              <Button variant="outline" disabled={isDeleting}>
+                Cancel
+              </Button>
+            </CredenzaClose>
+            <Button
               disabled={isDeleting}
-              onClick={(event) => {
-                event.preventDefault();
+              onClick={() => {
                 void handleDelete();
               }}
             >
               {isDeleting ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </CredenzaFooter>
+        </CredenzaContent>
+      </Credenza>
     </>
   );
 }

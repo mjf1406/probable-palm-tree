@@ -1,14 +1,13 @@
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  Credenza,
+  CredenzaClose,
+  CredenzaContent,
+  CredenzaDescription,
+  CredenzaFooter,
+  CredenzaHeader,
+  CredenzaTitle,
+  CredenzaTrigger,
+} from "@/components/ui/credenza";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -32,8 +31,8 @@ export function CancelGameButton({
   confirmLabel = "Cancel game",
 }: CancelGameButtonProps) {
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
+    <Credenza>
+      <CredenzaTrigger asChild>
         <Button
           type="button"
           variant="outline"
@@ -45,28 +44,27 @@ export function CancelGameButton({
         >
           {isCancelling ? "Ending..." : label}
         </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isCancelling}>
-            Keep game
-          </AlertDialogCancel>
-          <AlertDialogAction
+      </CredenzaTrigger>
+      <CredenzaContent>
+        <CredenzaHeader>
+          <CredenzaTitle>{title}</CredenzaTitle>
+          <CredenzaDescription>{description}</CredenzaDescription>
+        </CredenzaHeader>
+        <CredenzaFooter>
+          <CredenzaClose asChild>
+            <Button variant="outline" disabled={isCancelling}>
+              Keep game
+            </Button>
+          </CredenzaClose>
+          <Button
             variant="destructive"
             disabled={isCancelling}
-            onClick={(event) => {
-              event.preventDefault();
-              onCancel();
-            }}
+            onClick={onCancel}
           >
             {isCancelling ? "Ending..." : confirmLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </CredenzaFooter>
+      </CredenzaContent>
+    </Credenza>
   );
 }

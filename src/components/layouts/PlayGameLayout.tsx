@@ -18,16 +18,15 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  Credenza,
+  CredenzaClose,
+  CredenzaContent,
+  CredenzaDescription,
+  CredenzaFooter,
+  CredenzaHeader,
+  CredenzaTitle,
+  CredenzaTrigger,
+} from "@/components/ui/credenza";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { clearStoredPlayerId } from "@/lib/auth";
 import { formatDistance } from "@/lib/game";
@@ -191,8 +190,8 @@ export function PlayGameLayout({
                     labelClassName="normal-case tracking-normal text-muted-foreground"
                     timeClassName="text-lg font-semibold"
                   />
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
+                  <Credenza>
+                    <CredenzaTrigger asChild>
                       <Button
                         type="button"
                         variant="outline"
@@ -201,32 +200,31 @@ export function PlayGameLayout({
                       >
                         {isEnding ? "Ending..." : "End game"}
                       </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>End this game?</AlertDialogTitle>
-                        <AlertDialogDescription>
+                    </CredenzaTrigger>
+                    <CredenzaContent>
+                      <CredenzaHeader>
+                        <CredenzaTitle>End this game?</CredenzaTitle>
+                        <CredenzaDescription>
                           This will stop the timer immediately and show the final
                           results screen to everyone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isEnding}>
-                          Keep playing
-                        </AlertDialogCancel>
-                        <AlertDialogAction
+                        </CredenzaDescription>
+                      </CredenzaHeader>
+                      <CredenzaFooter>
+                        <CredenzaClose asChild>
+                          <Button variant="outline" disabled={isEnding}>
+                            Keep playing
+                          </Button>
+                        </CredenzaClose>
+                        <Button
                           variant="destructive"
                           disabled={isEnding}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            handleEndGame();
-                          }}
+                          onClick={handleEndGame}
                         >
                           {isEnding ? "Ending..." : "End game"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                        </Button>
+                      </CredenzaFooter>
+                    </CredenzaContent>
+                  </Credenza>
                 </div>
               </SheetContent>
             </Sheet>

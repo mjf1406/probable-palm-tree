@@ -1,11 +1,11 @@
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Credenza,
+  CredenzaContent,
+  CredenzaDescription,
+  CredenzaFooter,
+  CredenzaHeader,
+  CredenzaTitle,
+} from "@/components/ui/credenza";
 import { Button } from "@/components/ui/button";
 import {
   formatSkippedTypeSummary,
@@ -41,12 +41,12 @@ export function ExportPreviewDialog({
   const canExport = preview.exportableCount > 0;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Export preview</DialogTitle>
-          <DialogDescription>{PLATFORM_NOTES[format]}</DialogDescription>
-        </DialogHeader>
+    <Credenza open={open} onOpenChange={onOpenChange}>
+      <CredenzaContent>
+        <CredenzaHeader>
+          <CredenzaTitle>Export preview</CredenzaTitle>
+          <CredenzaDescription>{PLATFORM_NOTES[format]}</CredenzaDescription>
+        </CredenzaHeader>
 
         <div className="space-y-3 text-sm">
           <p>
@@ -81,15 +81,15 @@ export function ExportPreviewDialog({
           ) : null}
         </div>
 
-        <DialogFooter>
+        <CredenzaFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={onConfirm} disabled={!canExport}>
             Download
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </CredenzaFooter>
+      </CredenzaContent>
+    </Credenza>
   );
 }

@@ -11,10 +11,10 @@ import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Credenza,
+  CredenzaContent,
+  CredenzaTrigger,
+} from "@/components/ui/credenza";
 import { Input } from "@/components/ui/input";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
@@ -431,8 +431,8 @@ export function FontAwesomeIconPicker({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <Credenza open={open} onOpenChange={setOpen}>
+      <CredenzaTrigger asChild>
         <Button
           type="button"
           variant="outline"
@@ -448,9 +448,9 @@ export function FontAwesomeIconPicker({
             <span className="text-muted-foreground">{placeholder}</span>
           )}
         </Button>
-      </DialogTrigger>
+      </CredenzaTrigger>
 
-      <DialogContent className="w-[600px] h-[600px] p-3 flex flex-col gap-3">
+      <CredenzaContent className="flex h-[min(600px,80vh)] w-full max-w-[600px] flex-col gap-3 p-3">
         <div className="flex items-center gap-2">
           <Input
             value={query}
@@ -509,7 +509,7 @@ export function FontAwesomeIconPicker({
             ref={gridScrollAreaRootRef}
             className="h-full w-full"
             onWheelCapture={(e) => {
-              // Prevent Dialog from interfering with wheel.
+              // Prevent Credenza from interfering with wheel.
               e.stopPropagation();
             }}
           >
@@ -578,7 +578,7 @@ export function FontAwesomeIconPicker({
             {selectedCategory ? formatCategoryName(selectedCategory) : ""}
           </span>
         </div>
-      </DialogContent>
-    </Dialog>
+      </CredenzaContent>
+    </Credenza>
   );
 }

@@ -2,12 +2,12 @@ import { useState } from "react";
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 import { db } from "@/lib/db";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Credenza,
+  CredenzaContent,
+  CredenzaDescription,
+  CredenzaHeader,
+  CredenzaTitle,
+} from "@/components/ui/credenza";
 
 const googleClientId = import.meta.env.VITE_GOOGLE_ID;
 const googleClientName = import.meta.env.VITE_GOOGLE_CLIENT_NAME;
@@ -38,14 +38,14 @@ export function SignInDialog({
   const missingConfig = !googleClientId || !googleClientName;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Host sign in</DialogTitle>
-          <DialogDescription>
+    <Credenza open={open} onOpenChange={handleOpenChange}>
+      <CredenzaContent className="sm:max-w-sm">
+        <CredenzaHeader>
+          <CredenzaTitle>Host sign in</CredenzaTitle>
+          <CredenzaDescription>
             Sign in with Google to create decks and launch games.
-          </DialogDescription>
-        </DialogHeader>
+          </CredenzaDescription>
+        </CredenzaHeader>
 
         {missingConfig ? (
           <p className="text-destructive text-sm">
@@ -99,7 +99,7 @@ export function SignInDialog({
             ) : null}
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </CredenzaContent>
+    </Credenza>
   );
 }

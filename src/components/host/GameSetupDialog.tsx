@@ -11,13 +11,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
+    Credenza,
+    CredenzaContent,
+    CredenzaDescription,
+    CredenzaFooter,
+    CredenzaHeader,
+    CredenzaTitle,
+} from "@/components/ui/credenza";
 import { Label } from "@/components/ui/label";
 import { NumberInput } from "@/components/ui/number-input";
 import {
@@ -169,7 +169,7 @@ export function GameSetupDialog({
     ...formProps
 }: GameSetupDialogProps) {
     return (
-        <Dialog
+        <Credenza
             open={open}
             onOpenChange={onOpenChange}
         >
@@ -179,7 +179,7 @@ export function GameSetupDialog({
                     onClose={() => onOpenChange(false)}
                 />
             ) : null}
-        </Dialog>
+        </Credenza>
     );
 }
 
@@ -337,14 +337,14 @@ function GameSetupForm({
     };
 
     return (
-        <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-                <DialogTitle>Play again</DialogTitle>
-                <DialogDescription>
+        <CredenzaContent className="sm:max-w-md">
+            <CredenzaHeader>
+                <CredenzaTitle>Play again</CredenzaTitle>
+                <CredenzaDescription>
                     Pick a deck for the next run. Everyone stays in the
                     lobby.
-                </DialogDescription>
-            </DialogHeader>
+                </CredenzaDescription>
+            </CredenzaHeader>
 
             <div className="space-y-4">
                 <div className="space-y-2">
@@ -585,7 +585,7 @@ function GameSetupForm({
                 </div>
             </div>
 
-            <DialogFooter>
+            <CredenzaFooter>
                 <Button
                     onClick={() => void handleSubmit()}
                     disabled={
@@ -594,7 +594,7 @@ function GameSetupForm({
                 >
                     {isSubmitting ? "Saving..." : "Launch game"}
                 </Button>
-            </DialogFooter>
-        </DialogContent>
+            </CredenzaFooter>
+        </CredenzaContent>
     );
 }

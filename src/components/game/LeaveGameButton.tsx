@@ -1,14 +1,13 @@
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  Credenza,
+  CredenzaClose,
+  CredenzaContent,
+  CredenzaDescription,
+  CredenzaFooter,
+  CredenzaHeader,
+  CredenzaTitle,
+  CredenzaTrigger,
+} from "@/components/ui/credenza";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -24,8 +23,8 @@ export function LeaveGameButton({
   className,
 }: LeaveGameButtonProps) {
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
+    <Credenza>
+      <CredenzaTrigger asChild>
         <Button
           type="button"
           variant="outline"
@@ -34,29 +33,30 @@ export function LeaveGameButton({
         >
           {isLeaving ? "Leaving..." : "Leave game"}
         </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Leave game?</AlertDialogTitle>
-          <AlertDialogDescription>
+      </CredenzaTrigger>
+      <CredenzaContent>
+        <CredenzaHeader>
+          <CredenzaTitle>Leave game?</CredenzaTitle>
+          <CredenzaDescription>
             You will be removed from the game and need to re-join with the code
             to play again.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLeaving}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
+          </CredenzaDescription>
+        </CredenzaHeader>
+        <CredenzaFooter>
+          <CredenzaClose asChild>
+            <Button variant="outline" disabled={isLeaving}>
+              Cancel
+            </Button>
+          </CredenzaClose>
+          <Button
             variant="destructive"
             disabled={isLeaving}
-            onClick={(event) => {
-              event.preventDefault();
-              onLeave();
-            }}
+            onClick={onLeave}
           >
             {isLeaving ? "Leaving..." : "Leave game"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          </Button>
+        </CredenzaFooter>
+      </CredenzaContent>
+    </Credenza>
   );
 }

@@ -11,15 +11,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Credenza,
+  CredenzaClose,
+  CredenzaContent,
+  CredenzaDescription,
+  CredenzaFooter,
+  CredenzaHeader,
+  CredenzaTitle,
+} from "@/components/ui/credenza";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -270,33 +269,36 @@ function DeckCard({ deck }: { deck: DeckWithQuestions }) {
               onConfirm={confirmPendingExport}
             />
           ) : null}
-          <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-          <AlertDialogContent
+          <Credenza open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <CredenzaContent
             onClick={(event) => event.stopPropagation()}
           >
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete this deck?</AlertDialogTitle>
-              <AlertDialogDescription>
+            <CredenzaHeader>
+              <CredenzaTitle>Delete this deck?</CredenzaTitle>
+              <CredenzaDescription>
                 &ldquo;{deck.title}&rdquo; and all {deck.questions.length}{" "}
                 question{deck.questions.length === 1 ? "" : "s"} will be
                 permanently removed. This cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
+              </CredenzaDescription>
+            </CredenzaHeader>
+            <CredenzaFooter>
+              <CredenzaClose asChild>
+                <Button variant="outline" disabled={isDeleting}>
+                  Cancel
+                </Button>
+              </CredenzaClose>
+              <Button
                 variant="destructive"
                 disabled={isDeleting}
-                onClick={(event) => {
-                  event.preventDefault();
+                onClick={() => {
                   void handleDelete();
                 }}
               >
                 {isDeleting ? "Deleting..." : "Delete deck"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </Button>
+            </CredenzaFooter>
+          </CredenzaContent>
+        </Credenza>
         </>
       ) : null}
     </>

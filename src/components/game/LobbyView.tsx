@@ -8,15 +8,14 @@ import { GameCodeDisplay } from "@/components/GameCodeDisplay";
 import { CancelGameButton } from "@/components/game/CancelGameButton";
 import { LeaveGameButton } from "@/components/game/LeaveGameButton";
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+    Credenza,
+    CredenzaClose,
+    CredenzaContent,
+    CredenzaDescription,
+    CredenzaFooter,
+    CredenzaHeader,
+    CredenzaTitle,
+} from "@/components/ui/credenza";
 import { PlayerAvatar } from "@/components/game/PlayerAvatar";
 import { PlayerCustomization } from "@/components/game/PlayerCustomization";
 import { Badge } from "@/components/ui/badge";
@@ -279,39 +278,40 @@ export function LobbyView({
                     ) : null}
                 </main>
 
-                <AlertDialog
+                <Credenza
                     open={Boolean(kickTarget)}
                     onOpenChange={(open) => {
                         if (!open) setKickTarget(null);
                     }}
                 >
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>
+                    <CredenzaContent>
+                        <CredenzaHeader>
+                            <CredenzaTitle>
                                 Kick {kickTarget?.nickname}?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
+                            </CredenzaTitle>
+                            <CredenzaDescription>
                                 They will be removed from the lobby and need to
                                 re-join with the code to play.
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel disabled={isKicking}>
-                                Cancel
-                            </AlertDialogCancel>
-                            <AlertDialogAction
+                            </CredenzaDescription>
+                        </CredenzaHeader>
+                        <CredenzaFooter>
+                            <CredenzaClose asChild>
+                                <Button variant="outline" disabled={isKicking}>
+                                    Cancel
+                                </Button>
+                            </CredenzaClose>
+                            <Button
                                 variant="destructive"
                                 disabled={isKicking}
-                                onClick={(event) => {
-                                    event.preventDefault();
+                                onClick={() => {
                                     void handleKick();
                                 }}
                             >
                                 {isKicking ? "Removing..." : "Kick player"}
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                            </Button>
+                        </CredenzaFooter>
+                    </CredenzaContent>
+                </Credenza>
             </>
         );
     }

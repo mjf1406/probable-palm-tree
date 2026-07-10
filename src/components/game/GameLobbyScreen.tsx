@@ -250,39 +250,6 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <DistanceGameVisual
-              gameType={game.gameType}
-              distanceMeters={totalDistance}
-              timeRemainingSeconds={0}
-              durationSeconds={game.durationSeconds}
-              bestDistanceMeters={bestDistance}
-              distanceLabel={gameMeta?.distanceLabel ?? "Distance"}
-          seaRouteDistanceMeters={game.seaRouteDistanceMeters}
-            />
-
-            {isGameTypeEnabled(game.gameType) && game.gameType === "seaSailors" ? (
-              <div className="rounded-xl border p-4 text-left">
-                <p className="text-sm text-muted-foreground">Route progress</p>
-                <p className="text-lg font-semibold">
-                  {game.seaRouteDistanceMeters
-                    ? `${Math.min(100, Math.round((totalDistance / game.seaRouteDistanceMeters) * 100))}%`
-                    : "--"}
-                </p>
-                <p className="mt-1 text-sm text-white/70">
-                  {formatDistance(totalDistance)} sailed
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-xl border p-4 text-left">
-                <p className="text-sm text-muted-foreground">
-                  Deepest level reached
-                </p>
-                <p className="text-lg font-semibold">
-                  {getLevelName(game.gameType, totalDistance)}
-                </p>
-              </div>
-            )}
-
             {currentPlayer ? (
               <div className="rounded-xl border p-4 text-left">
                 <p className="text-sm text-muted-foreground">Your accuracy</p>
@@ -310,6 +277,39 @@ export function GameLobbyScreen({ code, playerId }: GameLobbyScreenProps) {
                 ))}
               </ul>
             </div>
+
+            {isGameTypeEnabled(game.gameType) && game.gameType === "seaSailors" ? (
+              <div className="rounded-xl border p-4 text-left">
+                <p className="text-sm text-muted-foreground">Route progress</p>
+                <p className="text-lg font-semibold">
+                  {game.seaRouteDistanceMeters
+                    ? `${Math.min(100, Math.round((totalDistance / game.seaRouteDistanceMeters) * 100))}%`
+                    : "--"}
+                </p>
+                <p className="mt-1 text-sm text-white/70">
+                  {formatDistance(totalDistance)} sailed
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border p-4 text-left">
+                <p className="text-sm text-muted-foreground">
+                  Deepest level reached
+                </p>
+                <p className="text-lg font-semibold">
+                  {getLevelName(game.gameType, totalDistance)}
+                </p>
+              </div>
+            )}
+
+            <DistanceGameVisual
+              gameType={game.gameType}
+              distanceMeters={totalDistance}
+              timeRemainingSeconds={0}
+              durationSeconds={game.durationSeconds}
+              bestDistanceMeters={bestDistance}
+              distanceLabel={gameMeta?.distanceLabel ?? "Distance"}
+              seaRouteDistanceMeters={game.seaRouteDistanceMeters}
+            />
 
             {isHost && user ? (
               <SaveScoreForm
