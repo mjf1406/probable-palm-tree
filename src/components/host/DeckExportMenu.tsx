@@ -52,7 +52,7 @@ export function DeckExportMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align={align} onClick={onClick}>
           <DropdownMenuItem onSelect={() => runExport("squad-games")}>
-            Squad Games
+            ClassUpGames
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => requestThirdPartyExport("kahoot")}>
             Kahoot!

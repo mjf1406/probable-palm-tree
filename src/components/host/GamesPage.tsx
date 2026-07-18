@@ -33,7 +33,7 @@ export function GamesPage() {
       <div className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Games</h1>
         <p className="max-w-2xl text-muted-foreground">
-          Squad Games are distance challenges powered by your quiz decks. Correct
+          ClassUpGames are distance challenges powered by your quiz decks. Correct
           answers push the squad forward — streaks multiply each push. Pick a game
           when you launch a deck to set the theme and goal.
         </p>

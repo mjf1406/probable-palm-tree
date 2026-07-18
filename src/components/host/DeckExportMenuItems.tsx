@@ -29,7 +29,7 @@ export function DeckExportMenuItems({
           Export
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent>
-          <DropdownMenuItem onSelect={onSquadGames}>Squad Games</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onSquadGames}>ClassUpGames</DropdownMenuItem>
           <DropdownMenuItem onSelect={onKahoot}>Kahoot!</DropdownMenuItem>
           <DropdownMenuItem onSelect={onBlooket}>Blooket</DropdownMenuItem>
           <DropdownMenuItem onSelect={onGimkit}>Gimkit</DropdownMenuItem>

@@ -44,7 +44,7 @@ export function useDeckExport(deck: DeckExportData) {
           const file = exportSquadGames(deck);
           downloadBlob(file.blob, file.filename);
           toast.success(
-            `Exported as Squad Games (${file.extension.toUpperCase()})`,
+            `Exported as ClassUpGames (${file.extension.toUpperCase()})`,
           );
           return;
         }
@@ -119,6 +119,6 @@ function formatLabel(format: ExportFormat): string {
     case "gimkit":
       return "Gimkit";
     default:
-      return "Squad Games";
+      return "ClassUpGames";
   }
 }

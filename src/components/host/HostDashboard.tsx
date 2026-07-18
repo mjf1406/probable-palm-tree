@@ -560,7 +560,7 @@ export function HostDashboard() {
         <CardHeader>
           <CardTitle className="text-lg">Create a deck</CardTitle>
           <CardDescription>
-            Build your own question set or import from Squad Games, Kahoot,
+            Build your own question set or import from ClassUpGames, Kahoot,
             Blooket, or Gimkit.
           </CardDescription>
         </CardHeader>

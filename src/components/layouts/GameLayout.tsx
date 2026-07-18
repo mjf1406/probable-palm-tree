@@ -1,5 +1,4 @@
 import { Link, Outlet } from "@tanstack/react-router";
-import { Gamepad2 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { joinSearchDefaults } from "@/lib/routes";
 
@@ -11,10 +10,13 @@ export function GameLayout() {
           <Link
             to="/join"
             search={joinSearchDefaults}
-            className="flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+            className="flex items-center transition-opacity hover:opacity-80"
           >
-            <Gamepad2 className="size-4 text-primary" />
-            <span className="hidden sm:inline">Squad Games</span>
+            <img
+              src="/brand/logo-horizontal.webp"
+              alt="ClassUpGames"
+              className="h-7 w-auto object-contain"
+            />
           </Link>
           <ThemeToggle />
         </div>

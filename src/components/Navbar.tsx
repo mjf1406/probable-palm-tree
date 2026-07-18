@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Gamepad2, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -157,9 +157,12 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-2 font-semibold">
-          <Gamepad2 className="size-5 text-primary" />
-          <span className="hidden sm:inline">Squad Games</span>
+        <Link to="/" className="flex items-center">
+          <img
+            src="/brand/logo-horizontal.webp"
+            alt="ClassUpGames"
+            className="h-8 w-auto object-contain"
+          />
         </Link>
 
         <div className="flex flex-1 items-center justify-end gap-3 md:justify-between">

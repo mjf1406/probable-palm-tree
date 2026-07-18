@@ -201,12 +201,12 @@ function importedQuestionsFromJson(payload: SquadGamesJson): ImportedQuestion[] 
 function parseSquadGamesCsv(text: string): ImportedDeck {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean);
   if (lines.length < 3) {
-    throw new Error("Invalid Squad Games CSV file.");
+    throw new Error("Invalid ClassUpGames CSV file.");
   }
 
   const meta = parseCsvLine(lines[1]);
   const title = meta[2]?.trim();
-  if (!title) throw new Error("Squad Games CSV is missing a deck title.");
+  if (!title) throw new Error("ClassUpGames CSV is missing a deck title.");
 
   const questions: ImportedQuestion[] = [];
   for (let i = 3; i < lines.length; i++) {
@@ -232,7 +232,7 @@ function parseSquadGamesCsv(text: string): ImportedDeck {
   }
 
   if (questions.length === 0) {
-    throw new Error("No questions found in Squad Games CSV.");
+    throw new Error("No questions found in ClassUpGames CSV.");
   }
 
   return {
@@ -256,7 +256,7 @@ export function parseSquadGamesJson(text: string): ImportedDeck {
   try {
     payload = JSON.parse(text);
   } catch {
-    throw new Error("Invalid Squad Games JSON file.");
+    throw new Error("Invalid ClassUpGames JSON file.");
   }
 
   if (
@@ -264,17 +264,17 @@ export function parseSquadGamesJson(text: string): ImportedDeck {
     payload === null ||
     (payload as { format?: string }).format !== SQUAD_GAMES_FORMAT
   ) {
-    throw new Error("Unrecognized Squad Games JSON format.");
+    throw new Error("Unrecognized ClassUpGames JSON format.");
   }
 
   const data = payload as SquadGamesJson;
   if (!data.title?.trim()) {
-    throw new Error("Squad Games JSON is missing a deck title.");
+    throw new Error("ClassUpGames JSON is missing a deck title.");
   }
 
   const questions = importedQuestionsFromJson(data);
   if (questions.length === 0) {
-    throw new Error("No questions found in Squad Games JSON.");
+    throw new Error("No questions found in ClassUpGames JSON.");
   }
 
   return {

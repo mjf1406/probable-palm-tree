@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
-import { Gamepad2, LogIn } from "lucide-react";
+import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { joinSearchDefaults } from "@/lib/routes";
@@ -33,8 +32,11 @@ export function LoginPage({ redirect = "/" }: LoginPageProps) {
     <main className="mx-auto flex min-h-screen max-w-md items-center px-6 py-10">
       <Card className="w-full">
         <CardHeader className="text-center">
-          <Gamepad2 className="mx-auto mb-2 size-10 text-primary" />
-          <CardTitle className="text-2xl">Squad Games</CardTitle>
+          <img
+            src="/brand/logo-vertical.webp"
+            alt="ClassUpGames"
+            className="mx-auto mb-2 h-28 w-auto object-contain"
+          />
           <CardDescription>
             Sign in to host games, or join a squad with a code.
           </CardDescription>

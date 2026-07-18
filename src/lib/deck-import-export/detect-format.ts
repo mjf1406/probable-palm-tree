@@ -66,7 +66,7 @@ export async function parseDeckFile(
   }
 
   throw new Error(
-    "Could not detect deck format. Use Squad Games, Kahoot (.xlsx), Blooket (.xlsx/.csv), or Gimkit (.csv).",
+    "Could not detect deck format. Use ClassUpGames, Kahoot (.xlsx), Blooket (.xlsx/.csv), or Gimkit (.csv).",
   );
 }
 
