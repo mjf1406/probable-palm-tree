@@ -1,7 +1,11 @@
-import * as XLSX from "xlsx";
+import type { WorkBook } from "xlsx";
 import { sanitizeFilename } from "./download";
 import { clampBlooketTime, getMcExportRows, type McExportRow } from "./mc-export";
 import type { DeckExportData, ExportFile, ImportedDeck, ImportedQuestion } from "./types";
+
+async function loadXlsx() {
+  return import("xlsx");
+}
 
 export const BLOOKET_QUESTION_SLOTS = 100;
 export const BLOOKET_COLUMN_COUNT = 8;
@@ -107,7 +111,10 @@ function parseCorrectAnswerNumbers(value: string, optionCount: number): number[]
   return indices.length > 0 ? indices : [0];
 }
 
-function sheetToRows(workbook: XLSX.WorkBook): string[][] {
+function sheetToRows(
+  XLSX: Awaited<ReturnType<typeof loadXlsx>>,
+  workbook: WorkBook,
+): string[][] {
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
   return XLSX.utils.sheet_to_json<string[]>(sheet, {
@@ -239,9 +246,12 @@ export function exportBlooketCsv(deck: DeckExportData): ExportFile {
   };
 }
 
-export function parseBlooketXlsx(buffer: ArrayBuffer): ImportedDeck {
+export async function parseBlooketXlsx(
+  buffer: ArrayBuffer,
+): Promise<ImportedDeck> {
+  const XLSX = await loadXlsx();
   const workbook = XLSX.read(buffer, { type: "array" });
-  const questions = parseBlooketRows(sheetToRows(workbook));
+  const questions = parseBlooketRows(sheetToRows(XLSX, workbook));
   return { title: "Imported Blooket deck", questions };
 }
 
@@ -259,10 +269,13 @@ export function isBlooketContent(textOrRows: string | string[][]): boolean {
   return header.includes("question text") && header.includes("answer 1");
 }
 
-export function isBlooketWorkbook(buffer: ArrayBuffer): boolean {
+export async function isBlooketWorkbook(
+  buffer: ArrayBuffer,
+): Promise<boolean> {
   try {
+    const XLSX = await loadXlsx();
     const workbook = XLSX.read(buffer, { type: "array" });
-    return isBlooketContent(sheetToRows(workbook));
+    return isBlooketContent(sheetToRows(XLSX, workbook));
   } catch {
     return false;
   }

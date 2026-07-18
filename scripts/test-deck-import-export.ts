@@ -116,9 +116,11 @@ function testGimkitFixture() {
   assert.equal(imported.questions[0]?.correctIndex, 0);
 }
 
-function testKahootFixture() {
+async function testKahootFixture() {
   const buffer = readFileSync(join(fixturesDir, "kahoot-template.xlsx"));
-  const imported = parseKahoot(buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
+  const imported = await parseKahoot(
+    buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
+  );
   assert.equal(imported.questions.length, 1);
   assert.equal(imported.questions[0]?.text, "Which spreadsheet tools can read this sheet and export to xlsx format?");
   assert.equal(imported.questions[0]?.options.length, 4);
@@ -166,9 +168,9 @@ function testBlooketGoogleSheetsFixture() {
   assert.equal(imported.questions[2]?.options?.[1], "False");
 }
 
-function testBlooketFixture() {
+async function testBlooketFixture() {
   const buffer = readFileSync(join(fixturesDir, "blooket-template.xlsx"));
-  const imported = parseBlooketXlsx(
+  const imported = await parseBlooketXlsx(
     buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength),
   );
   assert.equal(imported.questions.length, 2);
@@ -177,14 +179,18 @@ function testBlooketFixture() {
   assert.equal(imported.questions[1]?.correctIndex, 1);
 }
 
-testExportPreview();
-void testSquadGamesRoundTrip();
-testSquadGamesSizeSelection();
-testGimkitFixture();
-testKahootFixture();
-void testBlooketCsvExportStructure();
-void testBlooketCsvExportRoundTrip();
-testBlooketGoogleSheetsFixture();
-testBlooketFixture();
+async function main() {
+  testExportPreview();
+  await testSquadGamesRoundTrip();
+  testSquadGamesSizeSelection();
+  testGimkitFixture();
+  await testKahootFixture();
+  await testBlooketCsvExportStructure();
+  await testBlooketCsvExportRoundTrip();
+  testBlooketGoogleSheetsFixture();
+  await testBlooketFixture();
 
-console.log("All deck import/export tests passed.");
+  console.log("All deck import/export tests passed.");
+}
+
+void main();

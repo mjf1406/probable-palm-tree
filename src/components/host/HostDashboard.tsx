@@ -227,7 +227,7 @@ function DeckCard({ deck }: { deck: DeckWithQuestions }) {
                     Edit
                   </DropdownMenuItem>
                   <DeckExportMenuItems
-                    onSquadGames={() => runExport("squad-games")}
+                    onSquadGames={() => void runExport("squad-games")}
                     onKahoot={() => requestThirdPartyExport("kahoot")}
                     onBlooket={() => requestThirdPartyExport("blooket")}
                     onGimkit={() => requestThirdPartyExport("gimkit")}

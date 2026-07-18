@@ -153,17 +153,15 @@ function MobileNav({
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isLoading, user } = db.useAuth();
-  const isHost = !isLoading && user && isGoogleUser(user);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
-      <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4 sm:px-6">
-        <Link to={isHost ? "/decks" : "/"} className="flex items-center">
+      <div className="mx-auto flex h-20 max-w-5xl items-center gap-3 px-4 sm:px-6">
+        <Link to="/" className="flex shrink-0 items-center">
           <img
             src="/brand/logo-horizontal.webp"
             alt="ClassUpGames"
-            className="h-8 w-auto object-contain"
+            className="my-2! h-16 w-auto object-contain sm:h-18"
           />
         </Link>
 

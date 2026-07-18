@@ -1,34 +1,112 @@
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
-import { fas } from "@fortawesome/free-solid-svg-icons";
-import { far } from "@fortawesome/free-regular-svg-icons";
+import {
+  faBolt,
+  faCat,
+  faCloud,
+  faCrow,
+  faCrown,
+  faDog,
+  faDove,
+  faDragon,
+  faFaceGrinStars,
+  faFaceSmile as faFaceSmileSolid,
+  faFire,
+  faFish,
+  faFrog,
+  faGamepad,
+  faGem,
+  faGhost,
+  faHatWizard,
+  faHeart,
+  faHippo,
+  faHorse,
+  faLeaf,
+  faMask,
+  faMoon,
+  faMountain,
+  faMusic,
+  faOtter,
+  faPalette,
+  faPaw,
+  faRainbow,
+  faRobot,
+  faRocket,
+  faSeedling,
+  faSnowflake,
+  faSpider,
+  faStar,
+  faSun,
+  faTree,
+  faTrophy,
+  faUmbrella,
+  faUser,
+  faUserAstronaut,
+  faUserNinja,
+  faUserSecret,
+  faWandMagicSparkles,
+  faWater,
+  faWind,
+} from "@fortawesome/free-solid-svg-icons";
+import {
+  faFaceGrin as faFaceGrinRegular,
+  faFaceSmile as faFaceSmileRegular,
+} from "@fortawesome/free-regular-svg-icons";
 
-function kebabToExportName(kebab: string): string {
-  const camel = kebab
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join("");
-  return `fa${camel}`;
-}
-
-const iconCache = new Map<string, IconDefinition>();
+const ICONS: Record<string, IconDefinition> = {
+  "fas:cat": faCat,
+  "fas:dog": faDog,
+  "fas:fish": faFish,
+  "fas:frog": faFrog,
+  "fas:hippo": faHippo,
+  "fas:horse": faHorse,
+  "fas:otter": faOtter,
+  "fas:paw": faPaw,
+  "fas:spider": faSpider,
+  "fas:dove": faDove,
+  "fas:crow": faCrow,
+  "fas:dragon": faDragon,
+  "fas:rocket": faRocket,
+  "fas:gamepad": faGamepad,
+  "fas:star": faStar,
+  "fas:bolt": faBolt,
+  "fas:fire": faFire,
+  "fas:heart": faHeart,
+  "fas:music": faMusic,
+  "fas:palette": faPalette,
+  "fas:wand-magic-sparkles": faWandMagicSparkles,
+  "fas:trophy": faTrophy,
+  "fas:crown": faCrown,
+  "fas:gem": faGem,
+  "fas:sun": faSun,
+  "fas:moon": faMoon,
+  "fas:cloud": faCloud,
+  "fas:snowflake": faSnowflake,
+  "fas:tree": faTree,
+  "fas:leaf": faLeaf,
+  "fas:mountain": faMountain,
+  "fas:water": faWater,
+  "fas:seedling": faSeedling,
+  "fas:rainbow": faRainbow,
+  "fas:wind": faWind,
+  "fas:umbrella": faUmbrella,
+  "fas:user": faUser,
+  "fas:user-astronaut": faUserAstronaut,
+  "fas:user-ninja": faUserNinja,
+  "fas:user-secret": faUserSecret,
+  "fas:ghost": faGhost,
+  "fas:robot": faRobot,
+  "fas:face-smile": faFaceSmileSolid,
+  "fas:face-grin-stars": faFaceGrinStars,
+  "far:face-smile": faFaceSmileRegular,
+  "far:face-grin": faFaceGrinRegular,
+  "fas:hat-wizard": faHatWizard,
+  "fas:mask": faMask,
+};
 
 export function iconIdFromDefinition(icon: IconDefinition): string {
   return `${icon.prefix}:${icon.iconName}`;
 }
 
 export function resolveIconId(id: string): IconDefinition | null {
-  const cached = iconCache.get(id);
-  if (cached) return cached;
-
-  const [prefix, iconName] = id.split(":");
-  if (!prefix || !iconName) return null;
-
-  const exportName = kebabToExportName(iconName);
-  const pack = prefix === "far" ? far : fas;
-  const icon = pack[exportName as keyof typeof pack] as IconDefinition | undefined;
-
-  if (!icon) return null;
-
-  iconCache.set(id, icon);
-  return icon;
+  return ICONS[id] ?? null;
 }

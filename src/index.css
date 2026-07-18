@@ -139,4 +139,11 @@
     margin-right: 0 !important;
     padding-right: 0 !important;
     }
+  /* Snap theme changes — avoid lagged color transitions on buttons/text */
+  html.disable-theme-transitions,
+  html.disable-theme-transitions *,
+  html.disable-theme-transitions *::before,
+  html.disable-theme-transitions *::after {
+    transition: none !important;
+    }
 }

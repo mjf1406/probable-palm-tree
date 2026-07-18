@@ -1,5 +1,4 @@
-import { Link, Navigate } from "@tanstack/react-router";
-import { PageLoader } from "@/components/PageLoader";
+import { Link } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { isGoogleUser } from "@/lib/auth";
@@ -7,19 +6,8 @@ import { db } from "@/lib/db";
 import { joinSearchDefaults, loginSearchDefaults } from "@/lib/routes";
 
 export function LandingPage() {
-  const { isLoading, user } = db.useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <PageLoader />
-      </div>
-    );
-  }
-
-  if (user && isGoogleUser(user)) {
-    return <Navigate to="/decks" replace />;
-  }
+  const { user } = db.useAuth();
+  const isHost = isGoogleUser(user);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
@@ -44,17 +32,20 @@ export function LandingPage() {
         <img
           src="/brand/logo-vertical.webp"
           alt="ClassUpGames"
-          className="mb-8 h-36 w-auto object-contain sm:h-44 animate-in fade-in zoom-in-95 duration-700"
+          className="mb-8 h-52 w-auto object-contain sm:h-64 animate-in fade-in zoom-in-95 duration-700"
         />
         <p className="max-w-md text-balance text-lg text-muted-foreground sm:text-xl animate-in fade-in slide-in-from-bottom-2 duration-700 delay-150 fill-mode-both">
-          Classroom quiz decks that turn correct answers into distance
-          challenges.
+          Games for the whole class built on scientific themes. Class up and play on!
         </p>
         <div className="mt-10 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center animate-in fade-in slide-in-from-bottom-3 duration-700 delay-300 fill-mode-both">
           <Button asChild size="lg" className="min-w-44">
-            <Link to="/login" search={loginSearchDefaults}>
-              Host games
-            </Link>
+            {isHost ? (
+              <Link to="/decks">Host a game</Link>
+            ) : (
+              <Link to="/login" search={loginSearchDefaults}>
+                Host a game
+              </Link>
+            )}
           </Button>
           <Button asChild variant="outline" size="lg" className="min-w-44">
             <Link to="/join" search={joinSearchDefaults}>

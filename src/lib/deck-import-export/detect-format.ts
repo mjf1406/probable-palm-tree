@@ -30,11 +30,11 @@ export async function parseDeckFile(
 
   if (lower.endsWith(".xlsx")) {
     const buffer = await file.arrayBuffer();
-    if (isKahootWorkbook(buffer)) {
-      return { format: "kahoot", deck: parseKahoot(buffer) };
+    if (await isKahootWorkbook(buffer)) {
+      return { format: "kahoot", deck: await parseKahoot(buffer) };
     }
-    if (isBlooketWorkbook(buffer)) {
-      return { format: "blooket", deck: parseBlooketXlsx(buffer) };
+    if (await isBlooketWorkbook(buffer)) {
+      return { format: "blooket", deck: await parseBlooketXlsx(buffer) };
     }
     throw new Error("Unrecognized XLSX file. Expected Kahoot or Blooket format.");
   }

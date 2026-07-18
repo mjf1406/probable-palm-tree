@@ -38,7 +38,7 @@ export function useDeckExport(deck: DeckExportData) {
   }, []);
 
   const runExport = useCallback(
-    (format: ExportFormat) => {
+    async (format: ExportFormat) => {
       try {
         if (format === "squad-games") {
           const file = exportSquadGames(deck);
@@ -56,7 +56,7 @@ export function useDeckExport(deck: DeckExportData) {
 
         const file =
           format === "kahoot"
-            ? exportKahootXlsx(deck)
+            ? await exportKahootXlsx(deck)
             : format === "blooket"
               ? exportBlooketCsv(deck)
               : exportGimkitCsv(deck);
@@ -84,7 +84,7 @@ export function useDeckExport(deck: DeckExportData) {
 
   const confirmPendingExport = useCallback(() => {
     if (!pendingFormat) return;
-    runExport(pendingFormat);
+    void runExport(pendingFormat);
     setPreviewOpen(false);
     clearPendingFormat();
   }, [pendingFormat, runExport, clearPendingFormat]);
